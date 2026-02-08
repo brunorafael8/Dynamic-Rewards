@@ -1,0 +1,40 @@
+{
+  "name": "jolly-rewards-engine",
+  "version": "1.0.0",
+  "description": "Dynamic reward rules engine for processing employee events",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "jest",
+    "lint": "biome check src/ tests/",
+    "format": "biome check --write src/ tests/",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:seed": "tsx src/db/seed.ts"
+  },
+  "keywords": [],
+  "author": "Bruno Rafael Vieira Silva",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.2.4",
+    "drizzle-orm": "^0.45.1",
+    "fastify": "^5.7.4",
+    "openai": "^6.18.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.2.2",
+    "drizzle-kit": "^0.31.8",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
