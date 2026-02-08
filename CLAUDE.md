@@ -87,8 +87,10 @@
 | Expo | 54 | Framework |
 | React Native | 0.81.5 | Mobile runtime |
 | Expo Router | 6.x | File-based navigation |
+| Expo Image | latest | Optimized image component (ALWAYS use) |
 | Tamagui | 2.x | UI components + dark mode |
 | TanStack Query | 5.x | Data fetching + caching |
+| React Native Reanimated | 4.x | GPU-accelerated animations |
 | React Hook Form | 7.x | Form handling |
 | Zod | 4.x | Validation (shared with backend) |
 | Lucide Icons | latest | Iconography |
@@ -580,6 +582,38 @@ npm start                     # Expo dev server
 
 ---
 
+## Skills & Best Practices (ALWAYS USE)
+
+### Mobile Development (Expo + React Native)
+
+**CRITICAL: Before making any changes to the mobile app, ALWAYS run these skills:**
+
+1. **vercel-react-native-skills** - React Native performance and best practices
+   - Use when: Modifying any mobile component, list, animation, or UI
+   - Covers: List performance, animations, state management, rendering
+   - Command: Use the Skill tool with `vercel-react-native-skills`
+
+2. **expo** - Expo configuration and production readiness
+   - Use when: Changing app.json, adding native modules, or preparing builds
+   - Covers: SDK versions, config plugins, EAS builds, native dependencies
+   - Command: Use the Skill tool with `expo`
+
+3. **expo-app-design** skills (when applicable)
+   - `expo-app-design:building-ui` - UI components and styling
+   - `expo-app-design:data-fetching` - TanStack Query patterns
+   - `expo-app-design:tailwind-setup` - Tamagui/NativeWind setup
+
+**Mandatory Mobile Patterns:**
+- ✅ ALWAYS use `expo-image` for all images (never `<Image>` from react-native)
+- ✅ ALWAYS memoize list items with `React.memo`
+- ✅ ALWAYS use `useCallback` for callbacks passed to children
+- ✅ ALWAYS hoist static values outside render
+- ✅ ALWAYS use ternaries instead of `&&` for conditional rendering
+- ✅ ALWAYS use `placeholderData` in TanStack Query to prevent flicker
+- ✅ ALWAYS invalidate queries after mutations
+
+---
+
 ## Patterns & Conventions
 
 ### TypeScript
@@ -627,10 +661,14 @@ npm start                     # Expo dev server
 ❌ NEVER commit without running lint (`npm run lint`)
 
 ### Mobile
+❌ NEVER use `<Image>` from react-native (ALWAYS use `expo-image`)
 ❌ NEVER use StyleSheet.create (use Tamagui components)
 ❌ NEVER forget placeholderData in TanStack Query
 ❌ NEVER forget to invalidate cache after mutations
 ❌ NEVER skip error handling on API calls
+❌ NEVER use inline objects in FlatList props
+❌ NEVER skip React.memo on list items
+❌ NEVER use `&&` for conditional rendering (use ternaries)
 
 ### General
 ❌ NEVER commit with "Co-Authored-By: Claude"
