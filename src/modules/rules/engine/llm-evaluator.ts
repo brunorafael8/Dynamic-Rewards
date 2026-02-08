@@ -1,92 +1,177 @@
-import OpenAI from "openai";
+import { generateObject } from "ai";
 import pRetry, { AbortError } from "p-retry";
-import type { Condition } from "./types";
+import { z } from "zod/v4";
+import { getModel, isAIConfigured } from "./ai-provider";
+import type { Condition, LLMEvaluation } from "./types";
 
-const LLM_TIMEOUT_MS = 10000; // 10 seconds
+const LLM_TIMEOUT_MS = 10000;
 const LLM_MAX_RETRIES = 3;
 
-let client: OpenAI | null = null;
+// Zod schemas for structured LLM outputs
 
-function getClient(): OpenAI | null {
-	if (!process.env.OPENAI_API_KEY) return null;
+const evaluationSchema = z.object({
+	match: z.boolean().describe("Whether the content meets the criteria"),
+	confidence: z
+		.number()
+		.min(0)
+		.max(1)
+		.describe("Confidence score between 0 and 1"),
+	reasoning: z.string().describe("Brief one-sentence explanation"),
+});
 
-	if (!client) {
-		client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-	}
-	return client;
+const sentimentSchema = z.object({
+	sentiment: z
+		.enum(["positive", "negative", "neutral"])
+		.describe("Overall sentiment of the text"),
+	score: z
+		.number()
+		.min(-1)
+		.max(1)
+		.describe("Sentiment score from -1 (negative) to 1 (positive)"),
+	reasoning: z.string().describe("Brief one-sentence explanation"),
+});
+
+const qualitySchema = z.object({
+	score: z
+		.number()
+		.min(0)
+		.max(100)
+		.describe("Quality score from 0 (poor) to 100 (excellent)"),
+	reasoning: z.string().describe("Brief one-sentence explanation"),
+});
+
+// Helper: wrap AI call with timeout + retry
+
+async function withResilience<T>(fn: () => Promise<T>): Promise<T> {
+	return pRetry(
+		async () => {
+			return Promise.race([
+				fn(),
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error("LLM timeout")), LLM_TIMEOUT_MS),
+				),
+			]);
+		},
+		{
+			retries: LLM_MAX_RETRIES,
+			onFailedAttempt: (context) => {
+				const errMsg = context.error.message;
+				const isRetryable =
+					errMsg.includes("429") ||
+					errMsg.includes("rate limit") ||
+					errMsg.includes("500") ||
+					errMsg.includes("503") ||
+					errMsg === "LLM timeout";
+
+				if (!isRetryable) {
+					throw new AbortError(errMsg);
+				}
+
+				console.warn(
+					`LLM attempt ${context.attemptNumber} failed: ${errMsg}. Retrying...`,
+				);
+			},
+		},
+	);
 }
 
+// Check if conditions contain LLM-backed operators
+
 export function hasLLMConditions(conditions: Condition[]): boolean {
-	return conditions.some((c) => c.op === "llm");
+	return conditions.some(
+		(c) => c.op === "llm" || c.op === "sentiment" || c.op === "quality_score",
+	);
 }
 
 export function getLLMConditions(conditions: Condition[]): Condition[] {
-	return conditions.filter((c) => c.op === "llm");
+	return conditions.filter(
+		(c) => c.op === "llm" || c.op === "sentiment" || c.op === "quality_score",
+	);
 }
+
+// Evaluators for each LLM operator
 
 export async function evaluateLLMCondition(
 	fieldValue: string | null,
 	prompt: string,
-): Promise<boolean> {
-	const openai = getClient();
-	if (!openai) return false;
-
-	if (!fieldValue) return false;
+): Promise<LLMEvaluation> {
+	if (!isAIConfigured() || !fieldValue) {
+		return { match: false, confidence: 0, reasoning: "Skipped" };
+	}
 
 	try {
-		const response = await pRetry(
-			async () => {
-				// Race between LLM call and timeout
-				const result = await Promise.race([
-					openai.chat.completions.create({
-						model: "gpt-4o-mini",
-						messages: [
-							{
-								role: "system",
-								content:
-									"You are a judge evaluating employee visit data. Respond with ONLY 'true' or 'false', nothing else.",
-							},
-							{
-								role: "user",
-								content: `${prompt}\n\nContent to evaluate:\n"${fieldValue}"`,
-							},
-						],
-						temperature: 0,
-						max_tokens: 5,
-					}),
-					new Promise<never>((_, reject) =>
-						setTimeout(() => reject(new Error("LLM timeout")), LLM_TIMEOUT_MS),
-					),
-				]);
-				return result;
-			},
-			{
-				retries: LLM_MAX_RETRIES,
-				onFailedAttempt: (context) => {
-					// Check if error is retryable
-					const errMsg = context.error.message;
-					const isRateLimitError =
-						errMsg.includes("429") || errMsg.includes("rate limit");
-					const isServerError =
-						errMsg.includes("500") || errMsg.includes("503");
-
-					// Don't retry on non-transient errors
-					if (!isRateLimitError && !isServerError && errMsg !== "LLM timeout") {
-						throw new AbortError(errMsg);
-					}
-
-					console.warn(
-						`LLM attempt ${context.attemptNumber} failed: ${errMsg}. Retrying...`,
-					);
-				},
-			},
+		const { object } = await withResilience(() =>
+			generateObject({
+				model: getModel(),
+				schema: evaluationSchema,
+				system: "You are a judge evaluating employee visit data. Be concise.",
+				prompt: `${prompt}\n\nContent to evaluate:\n"${fieldValue}"`,
+			}),
 		);
 
-		const answer = response.choices[0]?.message?.content?.trim().toLowerCase();
-		return answer === "true";
+		return object;
 	} catch (err) {
-		// Don't break the pipeline on LLM failures
 		console.error("LLM evaluation failed:", (err as Error).message);
-		return false;
+		return { match: false, confidence: 0, reasoning: "Evaluation failed" };
+	}
+}
+
+export async function evaluateSentiment(
+	fieldValue: string | null,
+	expectedSentiment: string,
+): Promise<LLMEvaluation> {
+	if (!isAIConfigured() || !fieldValue) {
+		return { match: false, confidence: 0, reasoning: "Skipped" };
+	}
+
+	try {
+		const { object } = await withResilience(() =>
+			generateObject({
+				model: getModel(),
+				schema: sentimentSchema,
+				system:
+					"You are a sentiment analyzer for employee visit documentation. Be concise.",
+				prompt: `Analyze the sentiment of this text:\n"${fieldValue}"`,
+			}),
+		);
+
+		return {
+			match: object.sentiment === expectedSentiment,
+			confidence: Math.abs(object.score),
+			reasoning: object.reasoning,
+		};
+	} catch (err) {
+		console.error("Sentiment evaluation failed:", (err as Error).message);
+		return { match: false, confidence: 0, reasoning: "Evaluation failed" };
+	}
+}
+
+export async function evaluateQualityScore(
+	fieldValue: string | null,
+	threshold: number,
+): Promise<LLMEvaluation> {
+	if (!isAIConfigured() || !fieldValue) {
+		return { match: false, confidence: 0, reasoning: "Skipped" };
+	}
+
+	try {
+		const { object } = await withResilience(() =>
+			generateObject({
+				model: getModel(),
+				schema: qualitySchema,
+				system:
+					"You are a documentation quality assessor for employee visit notes. Score based on helpfulness, detail, and professionalism. Be concise.",
+				prompt: `Rate the quality of this documentation:\n"${fieldValue}"`,
+			}),
+		);
+
+		return {
+			match: object.score >= threshold,
+			confidence: object.score / 100,
+			reasoning: object.reasoning,
+		};
+	} catch (err) {
+		console.error("Quality evaluation failed:", (err as Error).message);
+		return { match: false, confidence: 0, reasoning: "Evaluation failed" };
 	}
 }

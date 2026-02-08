@@ -9,11 +9,13 @@ import {
 } from "../../../db/schema";
 import {
 	evaluateLLMCondition,
+	evaluateQualityScore,
+	evaluateSentiment,
 	getLLMConditions,
 	hasLLMConditions,
 } from "./llm-evaluator";
 import { evaluateAllConditions } from "./operators";
-import type { Condition, ProcessResult } from "./types";
+import type { Condition, LLMEvaluation, ProcessResult } from "./types";
 
 const LLM_CONCURRENCY = 5;
 const llmLimit = pLimit(LLM_CONCURRENCY);
@@ -35,6 +37,20 @@ function visitToRecord(
 	};
 }
 
+function dispatchLLMCondition(
+	condition: Condition,
+	fieldValue: string | null,
+): Promise<LLMEvaluation> {
+	switch (condition.op) {
+		case "sentiment":
+			return evaluateSentiment(fieldValue, condition.value as string);
+		case "quality_score":
+			return evaluateQualityScore(fieldValue, condition.value as number);
+		default:
+			return evaluateLLMCondition(fieldValue, condition.value as string);
+	}
+}
+
 async function evaluateLLMConditionsForVisit(
 	conditions: Condition[],
 	record: Record<string, unknown>,
@@ -46,17 +62,14 @@ async function evaluateLLMConditionsForVisit(
 	const results = await Promise.all(
 		llmConditions.map((condition) =>
 			llmLimit(() => {
-				const fieldValue = record[condition.field];
-				return evaluateLLMCondition(
-					fieldValue as string | null,
-					condition.value as string,
-				);
+				const fieldValue = record[condition.field] as string | null;
+				return dispatchLLMCondition(condition, fieldValue);
 			}),
 		),
 	);
 
-	// All LLM conditions must be true
-	return results.every((result) => result === true);
+	// All LLM conditions must match
+	return results.every((result) => result.match);
 }
 
 export async function processVisits(

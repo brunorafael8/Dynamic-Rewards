@@ -1,4 +1,5 @@
-import type { Condition } from "./types";
+import type { Condition, LLMOperator } from "./types";
+import { LLM_OPERATORS } from "./types";
 
 type OperatorFn = (
 	fieldValue: unknown,
@@ -60,8 +61,8 @@ export function evaluateCondition(
 	condition: Condition,
 	record: Record<string, unknown>,
 ): boolean {
-	// LLM conditions are handled separately
-	if (condition.op === "llm") return true;
+	// LLM-backed conditions are handled separately in evaluator.ts
+	if (LLM_OPERATORS.includes(condition.op as LLMOperator)) return true;
 
 	const operatorFn = operators[condition.op];
 	if (!operatorFn) return false;

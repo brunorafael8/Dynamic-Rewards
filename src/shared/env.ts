@@ -2,7 +2,10 @@ import { z } from "zod/v4";
 
 const envSchema = z.object({
 	DATABASE_URL: z.string().url(),
-	OPENAI_API_KEY: z.string().optional(),
+	AI_PROVIDER: z.enum(["openai", "anthropic"]).default("openai").optional(),
+	AI_MODEL: z.string().default("gpt-4o-mini").optional(),
+	AI_API_KEY: z.string().optional(),
+	OPENAI_API_KEY: z.string().optional(), // Legacy fallback
 	PORT: z.coerce.number().default(3000),
 });
 
