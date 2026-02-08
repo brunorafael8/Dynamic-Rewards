@@ -1,5 +1,9 @@
 import OpenAI from "openai";
+import pRetry, { AbortError } from "p-retry";
 import type { Condition } from "./types";
+
+const LLM_TIMEOUT_MS = 10000; // 10 seconds
+const LLM_MAX_RETRIES = 3;
 
 let client: OpenAI | null = null;
 
@@ -30,22 +34,53 @@ export async function evaluateLLMCondition(
 	if (!fieldValue) return false;
 
 	try {
-		const response = await openai.chat.completions.create({
-			model: "gpt-4o-mini",
-			messages: [
-				{
-					role: "system",
-					content:
-						"You are a judge evaluating employee visit data. Respond with ONLY 'true' or 'false', nothing else.",
+		const response = await pRetry(
+			async () => {
+				// Race between LLM call and timeout
+				const result = await Promise.race([
+					openai.chat.completions.create({
+						model: "gpt-4o-mini",
+						messages: [
+							{
+								role: "system",
+								content:
+									"You are a judge evaluating employee visit data. Respond with ONLY 'true' or 'false', nothing else.",
+							},
+							{
+								role: "user",
+								content: `${prompt}\n\nContent to evaluate:\n"${fieldValue}"`,
+							},
+						],
+						temperature: 0,
+						max_tokens: 5,
+					}),
+					new Promise<never>((_, reject) =>
+						setTimeout(() => reject(new Error("LLM timeout")), LLM_TIMEOUT_MS),
+					),
+				]);
+				return result;
+			},
+			{
+				retries: LLM_MAX_RETRIES,
+				onFailedAttempt: (context) => {
+					// Check if error is retryable
+					const errMsg = context.error.message;
+					const isRateLimitError =
+						errMsg.includes("429") || errMsg.includes("rate limit");
+					const isServerError =
+						errMsg.includes("500") || errMsg.includes("503");
+
+					// Don't retry on non-transient errors
+					if (!isRateLimitError && !isServerError && errMsg !== "LLM timeout") {
+						throw new AbortError(errMsg);
+					}
+
+					console.warn(
+						`LLM attempt ${context.attemptNumber} failed: ${errMsg}. Retrying...`,
+					);
 				},
-				{
-					role: "user",
-					content: `${prompt}\n\nContent to evaluate:\n"${fieldValue}"`,
-				},
-			],
-			temperature: 0,
-			max_tokens: 5,
-		});
+			},
+		);
 
 		const answer = response.choices[0]?.message?.content?.trim().toLowerCase();
 		return answer === "true";

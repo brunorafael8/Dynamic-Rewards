@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { YStack, XStack, Card, H2, H4, Text, Button, Spinner } from 'tamagui';
 import { processVisits, ProcessResult, queryClient } from '../../lib/api';
 import { queryKeys } from '../../lib/query-keys';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-function ResultCard({ result }: { result: ProcessResult }) {
+const ResultCard = memo(({ result }: { result: ProcessResult }) => {
   return (
     <Animated.View entering={FadeInDown.duration(400)}>
       <Card elevate size="$4" bordered backgroundColor="$backgroundStrong" marginTop="$6">
@@ -33,10 +33,13 @@ function ResultCard({ result }: { result: ProcessResult }) {
       </Card>
     </Animated.View>
   );
-}
+});
+
+ResultCard.displayName = 'ResultCard';
 
 export default function ProcessScreen() {
   const [lastResult, setLastResult] = useState<ProcessResult | null>(null);
+
   const mutation = useMutation({
     mutationFn: processVisits,
     onSuccess: (data) => {
@@ -46,6 +49,11 @@ export default function ProcessScreen() {
       queryClient.invalidateQueries({ queryKey: queryKeys.rules.all });
     },
   });
+
+  const handleProcess = useCallback(() => {
+    setLastResult(null);
+    mutation.mutate();
+  }, [mutation]);
 
   return (
     <YStack flex={1} backgroundColor="$background" padding="$4">
@@ -63,7 +71,7 @@ export default function ProcessScreen() {
           backgroundColor="$primary"
           color="white"
           pressStyle={{ scale: 0.95 }}
-          onPress={() => { setLastResult(null); mutation.mutate(); }}
+          onPress={handleProcess}
           disabled={mutation.isPending}
           width="80%"
           maxWidth={300}
@@ -79,7 +87,7 @@ export default function ProcessScreen() {
         </Button>
       </YStack>
 
-      {lastResult && <ResultCard result={lastResult} />}
+      {lastResult ? <ResultCard result={lastResult} /> : null}
     </YStack>
   );
 }

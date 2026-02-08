@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FlatList, RefreshControl } from 'react-native';
 import { YStack, XStack, Card, H2, Text, Badge, Spinner, Button } from 'tamagui';
@@ -5,7 +6,7 @@ import { fetchRules, RewardRule } from '../../lib/api';
 import { queryKeys } from '../../lib/query-keys';
 import { useRouter } from 'expo-router';
 
-function RuleCard({ rule }: { rule: RewardRule }) {
+const RuleCard = memo(({ rule }: { rule: RewardRule }) => {
   return (
     <Card
       elevate
@@ -22,11 +23,11 @@ function RuleCard({ rule }: { rule: RewardRule }) {
             <Text fontSize="$6" fontWeight="600" color="$color">
               {rule.name}
             </Text>
-            {rule.description && (
+            {rule.description ? (
               <Text fontSize="$3" color="$colorFocus" marginTop="$1">
                 {rule.description}
               </Text>
-            )}
+            ) : null}
           </YStack>
           <Badge
             backgroundColor={rule.active ? '#10B981' : '$borderColor'}
@@ -49,7 +50,13 @@ function RuleCard({ rule }: { rule: RewardRule }) {
       </Card.Body>
     </Card>
   );
-}
+});
+
+RuleCard.displayName = 'RuleCard';
+
+const keyExtractor = (item: RewardRule) => item.id;
+const renderItem = ({ item }: { item: RewardRule }) => <RuleCard rule={item} />;
+const contentContainerStyle = { padding: 16 };
 
 export default function RulesScreen() {
   const router = useRouter();
@@ -58,6 +65,32 @@ export default function RulesScreen() {
     queryFn: fetchRules,
     placeholderData: [],
   });
+
+  const handleCreateRule = useCallback(() => {
+    router.push('/rules/create');
+  }, [router]);
+
+  const ListEmptyComponent = useMemo(
+    () => (
+      <YStack flex={1} justifyContent="center" alignItems="center" paddingVertical="$10">
+        <Text fontSize="$8" color="$colorFocus" marginBottom="$4">📋</Text>
+        <Text fontSize="$6" color="$color" fontWeight="600" marginBottom="$2">
+          No rules yet
+        </Text>
+        <Text color="$colorFocus" textAlign="center" marginBottom="$4">
+          Create your first reward rule to get started
+        </Text>
+        <Button
+          backgroundColor="$primary"
+          color="white"
+          onPress={handleCreateRule}
+        >
+          Create Rule
+        </Button>
+      </YStack>
+    ),
+    [handleCreateRule]
+  );
 
   if (isLoading) {
     return (
@@ -79,30 +112,13 @@ export default function RulesScreen() {
 
       <FlatList
         data={rules}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <RuleCard rule={item} />}
-        contentContainerStyle={{ padding: 16 }}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        contentContainerStyle={contentContainerStyle}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
         }
-        ListEmptyComponent={
-          <YStack flex={1} justifyContent="center" alignItems="center" paddingVertical="$10">
-            <Text fontSize="$8" color="$colorFocus" marginBottom="$4">📋</Text>
-            <Text fontSize="$6" color="$color" fontWeight="600" marginBottom="$2">
-              No rules yet
-            </Text>
-            <Text color="$colorFocus" textAlign="center" marginBottom="$4">
-              Create your first reward rule to get started
-            </Text>
-            <Button
-              backgroundColor="$primary"
-              color="white"
-              onPress={() => router.push('/rules/create')}
-            >
-              Create Rule
-            </Button>
-          </YStack>
-        }
+        ListEmptyComponent={ListEmptyComponent}
       />
     </YStack>
   );

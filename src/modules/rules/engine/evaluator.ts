@@ -1,4 +1,5 @@
 import { eq, inArray, sql } from "drizzle-orm";
+import pLimit from "p-limit";
 import { db } from "../../../db";
 import {
 	profiles,
@@ -14,8 +15,8 @@ import {
 import { evaluateAllConditions } from "./operators";
 import type { Condition, ProcessResult } from "./types";
 
-// TODO: Implement LLM concurrency throttling
-// const LLM_CONCURRENCY = 5;
+const LLM_CONCURRENCY = 5;
+const llmLimit = pLimit(LLM_CONCURRENCY);
 
 function visitToRecord(
 	visit: typeof visits.$inferSelect,
@@ -41,15 +42,21 @@ async function evaluateLLMConditionsForVisit(
 	const llmConditions = getLLMConditions(conditions);
 	if (llmConditions.length === 0) return true;
 
-	for (const condition of llmConditions) {
-		const fieldValue = record[condition.field];
-		const result = await evaluateLLMCondition(
-			fieldValue as string | null,
-			condition.value as string,
-		);
-		if (!result) return false;
-	}
-	return true;
+	// Process LLM conditions in parallel with concurrency limit
+	const results = await Promise.all(
+		llmConditions.map((condition) =>
+			llmLimit(() => {
+				const fieldValue = record[condition.field];
+				return evaluateLLMCondition(
+					fieldValue as string | null,
+					condition.value as string,
+				);
+			}),
+		),
+	);
+
+	// All LLM conditions must be true
+	return results.every((result) => result === true);
 }
 
 export async function processVisits(

@@ -309,6 +309,168 @@ const operators: Record<Operator, EvaluatorFn> = {
 - Only called when `op === 'llm'` and `OPENAI_API_KEY` exists
 - Graceful degradation: skip silently if no API key
 - Concurrency limit: max 5 parallel LLM calls (respects rate limits)
+- Timeout: 10 seconds per LLM call
+- Retry logic: 3 retries with exponential backoff on rate limits/server errors
+
+---
+
+## Resilience Patterns
+
+### Transaction Atomicity
+
+**File:** `src/modules/rules/engine/evaluator.ts:166`
+
+All grant inserts and balance updates happen in a single database transaction:
+
+```typescript
+await db.transaction(async (tx) => {
+  // Insert grants in chunks
+  for (const chunk of chunks) {
+    await tx.insert(rewardGrants).values(chunk);
+  }
+
+  // Update profile balances
+  for (const [profileId, delta] of Object.entries(pointsDelta)) {
+    await tx.update(profiles).set(...).where(...);
+  }
+});
+```
+
+**Benefit:** If balance update fails, grants are rolled back. No inconsistent state.
+
+### Idempotency
+
+**Database:** Unique constraint on `(rule_id, visit_id)` prevents duplicate grants
+**Application:** Set-based lookup skips already-processed combinations
+
+```typescript
+const existingSet = new Set(
+  existingGrants.map(g => `${g.ruleId}:${g.visitId}`)
+);
+
+if (existingSet.has(grantKey)) {
+  continue; // Skip already granted
+}
+```
+
+**Benefit:** Re-processing visits is safe. No double points awarded.
+
+### LLM Concurrency Throttling
+
+**File:** `src/modules/rules/engine/evaluator.ts:17-20`
+
+Uses `p-limit` to control concurrent LLM calls:
+
+```typescript
+const LLM_CONCURRENCY = 5;
+const llmLimit = pLimit(LLM_CONCURRENCY);
+
+// Process LLM conditions in parallel with limit
+const results = await Promise.all(
+  llmConditions.map(condition =>
+    llmLimit(() => evaluateLLMCondition(...))
+  )
+);
+```
+
+**Benefit:** Faster than sequential (5x parallel) but respects OpenAI rate limits.
+
+### Timeout Protection
+
+**File:** `src/modules/rules/engine/llm-evaluator.ts:26`
+
+LLM calls timeout after 10 seconds using Promise.race:
+
+```typescript
+const response = await Promise.race([
+  openai.chat.completions.create({...}),
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('LLM timeout')), 10000)
+  )
+]);
+```
+
+**Benefit:** Prevents indefinite hanging on slow/stuck API calls.
+
+### Retry Logic with Exponential Backoff
+
+**File:** `src/modules/rules/engine/llm-evaluator.ts:32`
+
+Uses `p-retry` for transient failures:
+
+```typescript
+const response = await pRetry(
+  async () => {
+    // LLM call with timeout
+  },
+  {
+    retries: 3,
+    onFailedAttempt: (error) => {
+      const isRetryable =
+        error.message.includes('429') ||  // Rate limit
+        error.message.includes('500');    // Server error
+
+      if (!isRetryable) {
+        throw new AbortError(error.message);
+      }
+    }
+  }
+);
+```
+
+**Benefit:** Automatic recovery from rate limits and temporary server errors.
+
+### Graceful Degradation
+
+**File:** `src/modules/rules/engine/llm-evaluator.ts:7`
+
+LLM features work without API key:
+
+```typescript
+function getClient(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) return null; // Graceful
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
+
+// In evaluator
+if (!openai) return false; // Skip LLM conditions
+```
+
+**Benefit:** System works without LLM. No hard dependency on external service.
+
+### Batch Processing
+
+**File:** `src/modules/rules/engine/evaluator.ts:164`
+
+Inserts in chunks of 500 to avoid overwhelming database:
+
+```typescript
+const CHUNK_SIZE = 500;
+
+for (let i = 0; i < grantsToInsert.length; i += CHUNK_SIZE) {
+  const chunk = grantsToInsert.slice(i, i + CHUNK_SIZE);
+  await tx.insert(rewardGrants).values(chunk);
+}
+```
+
+**Benefit:** O(1) queries instead of O(N). Handles large datasets efficiently.
+
+### Error Boundaries
+
+**File:** `src/app.ts:25`, `src/modules/rules/engine/evaluator.ts:135`
+
+Errors are caught and collected without stopping processing:
+
+```typescript
+try {
+  const llmMatch = await evaluateLLMConditionsForVisit(...);
+} catch (err) {
+  result.errors.push(`LLM error: ${err.message}`);
+  continue; // Don't stop processing other visits
+}
+```
+
+**Benefit:** One failed visit doesn't break entire batch. All errors reported in summary.
 
 ---
 
@@ -406,10 +568,13 @@ npm start                     # Expo dev server
 | **Conditions** | JSON DSL | Extensible, parseable, managers can write it |
 | **Operators** | Map-based dispatch | Add new operator = 1 entry (no core changes) |
 | **Idempotency** | Unique constraint (rule_id + visit_id) | Prevents double grants on re-processing |
-| **Transactions** | Atomic grant + balance update | No partial state if fails |
-| **Batch Processing** | Bulk fetch + bulk insert | O(1) queries instead of O(N) per visit |
+| **Transactions** | Atomic grant + balance update (db.transaction) | No partial state if fails, rollback on error |
+| **Batch Processing** | Bulk fetch + bulk insert (chunks of 500) | O(1) queries instead of O(N) per visit |
+| **Concurrency Control** | p-limit (max 5 concurrent LLM calls) | Faster than sequential, respects rate limits |
+| **Timeout** | Promise.race (10s timeout on LLM) | Prevents indefinite hanging |
+| **Retry Logic** | p-retry (3 retries with exponential backoff) | Auto-recovery from transient failures (429, 500) |
 | **Soft Delete** | active=false on rules | Preserves audit trail |
-| **LLM** | Optional (graceful degradation) | Works without API key, throttled (max 5 concurrent) |
+| **LLM** | Optional (graceful degradation) | Works without API key, no hard dependency |
 | **Mobile UI** | Tamagui | Components + dark mode + Tailwind-like syntax |
 | **State Management** | TanStack Query | Caching, refetch, mutations |
 
