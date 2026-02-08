@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { YStack, XStack, Card, H2, H4, Text, Button, Spinner } from 'tamagui';
 import { processVisits, ProcessResult, queryClient } from '../../lib/api';
+import { queryKeys } from '../../lib/query-keys';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 function ResultCard({ result }: { result: ProcessResult }) {
@@ -40,8 +41,9 @@ export default function ProcessScreen() {
     mutationFn: processVisits,
     onSuccess: (data) => {
       setLastResult(data);
-      // Invalidate profiles query to refresh balances
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.rules.all });
     },
   });
 

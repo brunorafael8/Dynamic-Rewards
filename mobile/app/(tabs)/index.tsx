@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FlatList, RefreshControl } from 'react-native';
 import { YStack, XStack, Card, H2, Text, Badge, Spinner, Button } from 'tamagui';
 import { fetchRules, RewardRule } from '../../lib/api';
+import { queryKeys } from '../../lib/query-keys';
 import { useRouter } from 'expo-router';
 
 function RuleCard({ rule }: { rule: RewardRule }) {
@@ -53,7 +54,7 @@ function RuleCard({ rule }: { rule: RewardRule }) {
 export default function RulesScreen() {
   const router = useRouter();
   const { data: rules, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['rules'],
+    queryKey: queryKeys.rules.all,
     queryFn: fetchRules,
     placeholderData: [],
   });

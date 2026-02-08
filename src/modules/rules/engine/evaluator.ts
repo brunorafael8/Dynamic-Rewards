@@ -159,25 +159,28 @@ export async function processVisits(
 		}
 	}
 
-	// 5. Batch insert grants and update balances in chunks
+	// 5. Batch insert grants and update balances in transaction (atomicity)
 	if (grantsToInsert.length > 0) {
 		const CHUNK_SIZE = 500;
 
-		for (let i = 0; i < grantsToInsert.length; i += CHUNK_SIZE) {
-			const chunk = grantsToInsert.slice(i, i + CHUNK_SIZE);
-			await db.insert(rewardGrants).values(chunk);
-		}
+		await db.transaction(async (tx) => {
+			// Insert grants in chunks
+			for (let i = 0; i < grantsToInsert.length; i += CHUNK_SIZE) {
+				const chunk = grantsToInsert.slice(i, i + CHUNK_SIZE);
+				await tx.insert(rewardGrants).values(chunk);
+			}
 
-		// Update profile balances
-		for (const [profileId, delta] of Object.entries(pointsDelta)) {
-			await db
-				.update(profiles)
-				.set({
-					pointBalance: sql`${profiles.pointBalance} + ${delta}`,
-					updatedAt: new Date(),
-				})
-				.where(eq(profiles.id, profileId));
-		}
+			// Update profile balances
+			for (const [profileId, delta] of Object.entries(pointsDelta)) {
+				await tx
+					.update(profiles)
+					.set({
+						pointBalance: sql`${profiles.pointBalance} + ${delta}`,
+						updatedAt: new Date(),
+					})
+					.where(eq(profiles.id, profileId));
+			}
+		});
 
 		result.grantsCreated = grantsToInsert.length;
 		result.totalPointsAwarded = Object.values(pointsDelta).reduce(
