@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../src/db";
 import { profiles, rewardGrants, rewardRules, visits } from "../src/db/schema";
 import { processVisits } from "../src/modules/rules/engine/evaluator";
@@ -8,11 +8,10 @@ describe("Rule Engine - Integration", () => {
 	let testVisitId: string;
 
 	beforeEach(async () => {
-		// Clean tables
-		await db.delete(rewardGrants);
-		await db.delete(visits);
-		await db.delete(rewardRules);
-		await db.delete(profiles);
+		// Clean tables (cascade to handle FK constraints)
+		await db.execute(
+			sql`TRUNCATE reward_grants, visits, reward_rules, profiles CASCADE`,
+		);
 
 		// Seed test profile
 		const [profile] = await db
@@ -40,11 +39,9 @@ describe("Rule Engine - Integration", () => {
 	});
 
 	afterAll(async () => {
-		// Clean up
-		await db.delete(rewardGrants);
-		await db.delete(visits);
-		await db.delete(rewardRules);
-		await db.delete(profiles);
+		await db.execute(
+			sql`TRUNCATE reward_grants, visits, reward_rules, profiles CASCADE`,
+		);
 	});
 
 	it("should create grant and update balance when rule matches", async () => {
