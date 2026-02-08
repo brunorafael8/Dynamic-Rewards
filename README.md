@@ -4,6 +4,8 @@ Dynamic rules engine for processing employee events and granting reward points. 
 
 ## Quick Start
 
+### Backend API
+
 ```bash
 cp .env.example .env          # Add your DATABASE_URL
 npm install
@@ -11,6 +13,25 @@ npm run db:push               # Push schema to database
 npm run db:seed               # Load sample data
 npm run dev                   # Start server on :3000
 ```
+
+### Mobile App (Bonus)
+
+Premium React Native app built with Expo, Tamagui, and Jolly's design system.
+
+```bash
+cd mobile
+npm install
+npm start                     # Start Expo dev server
+```
+
+Scan the QR code with Expo Go to test on your device.
+
+**Features:**
+- Jolly design system (extracted colors + visual style)
+- Dark mode with smooth theme transitions
+- View and manage reward rules
+- Process visits with real-time feedback
+- Native-feel UX with Tamagui components
 
 ## API Reference
 
