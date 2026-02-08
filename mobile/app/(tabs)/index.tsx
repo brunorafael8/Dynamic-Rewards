@@ -55,6 +55,7 @@ export default function RulesScreen() {
   const { data: rules, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['rules'],
     queryFn: fetchRules,
+    placeholderData: [],
   });
 
   if (isLoading) {
