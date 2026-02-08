@@ -1,46 +1,24 @@
 {
-  "name": "jolly-rewards-engine",
+  "name": "dynamic-rewards",
   "version": "1.0.0",
-  "description": "Dynamic reward rules engine for processing employee events",
-  "main": "dist/server.js",
+  "private": true,
+  "description": "DynamicRewards - Monorepo for flexible reward rules engine (Backend API + Mobile App + Admin)",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "test": "jest",
-    "lint": "biome check src/ tests/",
-    "format": "biome check --write src/ tests/",
-    "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate",
-    "db:seed": "tsx src/db/seed.ts"
-  },
-  "keywords": [],
-  "author": "Bruno Rafael Vieira Silva",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.38",
-    "@ai-sdk/openai": "^3.0.26",
-    "@fastify/cors": "^11.2.0",
-    "@neondatabase/serverless": "^1.0.2",
-    "@types/ws": "^8.18.1",
-    "ai": "^6.0.77",
-    "dotenv": "^17.2.4",
-    "drizzle-orm": "^0.45.1",
-    "fastify": "^5.7.4",
-    "p-limit": "^7.3.0",
-    "p-retry": "^7.1.1",
-    "ws": "^8.19.0",
-    "zod": "^4.3.6"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "db:generate": "turbo run db:generate",
+    "db:push": "turbo run db:push",
+    "db:seed": "turbo run db:seed",
+    "clean": "turbo run clean"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.14",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^25.2.2",
-    "drizzle-kit": "^0.31.8",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

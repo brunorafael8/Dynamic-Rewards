@@ -1,7 +1,8 @@
 {
-  "name": "mobile",
+  "name": "@dynamic-rewards/mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -9,6 +10,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@dynamic-rewards/shared": "workspace:*",
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/native": "^7.1.8",
     "@tamagui/config": "^2.0.0-rc.7",
@@ -45,6 +47,5 @@
     "jest-expo": "^54.0.17",
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
-  },
-  "private": true
+  }
 }
