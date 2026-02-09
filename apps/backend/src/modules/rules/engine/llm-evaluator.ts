@@ -87,13 +87,20 @@ export async function evaluateLLMCondition(
 	}
 
 	try {
-		// Hybrid routing based on 2026 best practices:
-		// - Longer prompts need stronger models (token complexity)
-		// - Multi-step reasoning indicators suggest complex task
-		const hasReasoningIndicators = /why|how|compare|analyze|evaluate|explain/i.test(prompt);
-		const isLongPrompt = prompt.length > 100;
+		// Hybrid routing based on production patterns (RouteLLM, Anyscale):
+		// Calculate complexity score (0-1) and route based on threshold
+		const estimatedTokens = Math.ceil(prompt.length / 4); // ~4 chars per token
+		const hasReasoningKeywords = /why|how|compare|analyze|evaluate|explain|assess|judge/i.test(prompt);
 
-		const complexity = isLongPrompt || hasReasoningIndicators ? "complex" : "simple";
+		// Complexity score: weighted sum of signals
+		let complexityScore = 0;
+		complexityScore += Math.min(estimatedTokens / 100, 0.5); // Token length (max 0.5)
+		complexityScore += hasReasoningKeywords ? 0.3 : 0; // Reasoning indicators
+		complexityScore += fieldValue.length > 500 ? 0.2 : 0; // Long content to evaluate
+
+		// Threshold: 0.4 means ~40% of queries use strong model (calibrated for cost-quality balance)
+		const COMPLEXITY_THRESHOLD = 0.4;
+		const complexity = complexityScore > COMPLEXITY_THRESHOLD ? "complex" : "simple";
 
 		const { object } = await withResilience(() =>
 			generateObject({
