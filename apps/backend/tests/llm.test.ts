@@ -1,17 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { evaluateLLMCondition } from "../src/modules/rules/engine/llm-evaluator";
 import * as aiProvider from "../src/modules/rules/engine/ai-provider";
 
 // Mock AI provider
-vi.mock("../src/modules/rules/engine/ai-provider", () => ({
-	isAIConfigured: vi.fn(() => true),
-	getModel: vi.fn(() => "mock-model"),
+jest.mock("../src/modules/rules/engine/ai-provider", () => ({
+	isAIConfigured: jest.fn(() => true),
+	getModel: jest.fn(() => "mock-model"),
 }));
 
 // Mock AI SDK
-vi.mock("ai", () => ({
-	generateObject: vi.fn(async () => ({
+jest.mock("ai", () => ({
+	generateObject: jest.fn(async () => ({
 		object: {
+			thinking: "The documentation mentions a safety checklist was completed.",
 			match: true,
 			confidence: 0.95,
 			reasoning: "The documentation is thorough and professional.",
@@ -19,9 +19,21 @@ vi.mock("ai", () => ({
 	})),
 }));
 
+// Mock llm-cache (avoid side effects)
+jest.mock("../src/modules/rules/engine/llm-cache", () => ({
+	checkCache: jest.fn(() => null),
+	storeInCache: jest.fn(),
+}));
+
+// Mock llm-analytics (avoid side effects)
+jest.mock("../src/modules/rules/engine/llm-analytics", () => ({
+	trackLLMCall: jest.fn(),
+	estimateCost: jest.fn(() => 0),
+}));
+
 describe("LLM Evaluation", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		jest.clearAllMocks();
 	});
 
 	it("should evaluate documentation with LLM operator", async () => {
@@ -36,7 +48,7 @@ describe("LLM Evaluation", () => {
 	});
 
 	it("should skip evaluation when AI not configured", async () => {
-		vi.mocked(aiProvider.isAIConfigured).mockReturnValueOnce(false);
+		jest.mocked(aiProvider.isAIConfigured).mockReturnValueOnce(false);
 
 		const result = await evaluateLLMCondition(
 			"Some text",

@@ -54,7 +54,7 @@ export interface Condition {
 
 export interface ProcessResult {
   totalEvents: number;
-  rulesEvaluated: number;
+  totalRulesEvaluated: number;
   grantsCreated: number;
   totalPointsAwarded: number;
   skippedExisting: number;
