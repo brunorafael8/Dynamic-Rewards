@@ -1,8 +1,8 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { adminRoutes } from "./modules/admin/admin.routes";
+import { employeeRoutes } from "./modules/employees/employees.routes";
 import { eventRoutes } from "./modules/events/events.routes";
-import { profileRoutes } from "./modules/profiles/profiles.routes";
 import { ruleRoutes } from "./modules/rules/rules.routes";
 import { AppError, ValidationError } from "./shared/errors";
 
@@ -16,7 +16,7 @@ export function buildApp() {
 	app.register(cors, { origin: true });
 
 	// Routes
-	app.register(profileRoutes, { prefix: "/profiles" });
+	app.register(employeeRoutes, { prefix: "/employees" });
 	app.register(ruleRoutes, { prefix: "/rules" });
 	app.register(eventRoutes, { prefix: "/events" });
 	app.register(adminRoutes);

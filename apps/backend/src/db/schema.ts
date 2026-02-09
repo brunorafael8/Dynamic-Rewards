@@ -10,44 +10,44 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 
-export const profiles = pgTable("profiles", {
+// Employee schema - holds current point balance
+export const employees = pgTable("employees", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	name: text("name").notNull(),
-	pointBalance: integer("point_balance").notNull().default(0),
+	point_balance: integer("point_balance").notNull().default(0),
 	onboarded: boolean("onboarded").notNull().default(false),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const visits = pgTable(
-	"visits",
+// Event schema - flexible structure with type + metadata
+export const events = pgTable(
+	"events",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
-		profileId: uuid("profile_id")
+		employee_id: uuid("employee_id")
 			.notNull()
-			.references(() => profiles.id),
-		clockInTime: timestamp("clock_in_time"),
-		clockOutTime: timestamp("clock_out_time"),
-		scheduledStartTime: timestamp("scheduled_start_time"),
-		scheduledEndTime: timestamp("scheduled_end_time"),
-		correctClockInMethod: boolean("correct_clock_in_method").default(false),
-		documentation: text("documentation"),
+			.references(() => employees.id),
+		type: text("type").notNull(), // "clock_in", "clock_out", "note_added", etc.
+		timestamp: timestamp("timestamp").defaultNow().notNull(),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>(), // Flexible JSON data
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at").defaultNow().notNull(),
 	},
-	(table) => [index("visits_profile_id_idx").on(table.profileId)],
+	(table) => [index("events_employee_id_idx").on(table.employee_id)],
 );
 
+// Reward rule schema
 export const rewardRules = pgTable(
 	"reward_rules",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
 		name: text("name").notNull(),
 		description: text("description"),
-		eventType: text("event_type").notNull().default("visit"),
+		event_type: text("event_type").notNull(), // Which event.type this rule listens to
 		conditions: jsonb("conditions").notNull().$type<
 			Array<{
-				field: string;
+				field: string; // Can reference metadata fields like "metadata.correct_method"
 				op: string;
 				value?: unknown;
 			}>
@@ -60,23 +60,24 @@ export const rewardRules = pgTable(
 	(table) => [index("reward_rules_active_idx").on(table.active)],
 );
 
+// Reward grant schema - idempotency via unique constraint
 export const rewardGrants = pgTable(
 	"reward_grants",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
-		ruleId: uuid("rule_id")
+		rule_id: uuid("rule_id")
 			.notNull()
 			.references(() => rewardRules.id),
-		profileId: uuid("profile_id")
+		employee_id: uuid("employee_id")
 			.notNull()
-			.references(() => profiles.id),
-		visitId: uuid("visit_id")
+			.references(() => employees.id),
+		event_id: uuid("event_id")
 			.notNull()
-			.references(() => visits.id),
-		pointsAwarded: integer("points_awarded").notNull(),
+			.references(() => events.id),
+		points_awarded: integer("points_awarded").notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
-		unique("reward_grants_rule_visit_unique").on(table.ruleId, table.visitId),
+		unique("reward_grants_rule_event_unique").on(table.rule_id, table.event_id),
 	],
 );

@@ -13,6 +13,8 @@ const OPERATORS = [
 	"gte_field",
 	"contains",
 	"llm",
+	"sentiment",
+	"quality_score",
 ] as const;
 
 export type Operator = (typeof OPERATORS)[number];
@@ -28,7 +30,7 @@ export type Condition = z.infer<typeof conditionSchema>;
 export const createRuleBody = z.object({
 	name: z.string().min(1),
 	description: z.string().optional(),
-	eventType: z.string().default("visit"),
+	event_type: z.string().default("shift"),
 	conditions: z.array(conditionSchema).min(1),
 	points: z.number().int().positive(),
 });
@@ -36,7 +38,7 @@ export const createRuleBody = z.object({
 export const updateRuleBody = z.object({
 	name: z.string().min(1).optional(),
 	description: z.string().optional(),
-	eventType: z.string().optional(),
+	event_type: z.string().optional(),
 	conditions: z.array(conditionSchema).min(1).optional(),
 	points: z.number().int().positive().optional(),
 	active: z.boolean().optional(),

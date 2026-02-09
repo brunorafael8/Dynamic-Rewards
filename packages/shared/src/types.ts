@@ -1,16 +1,26 @@
-// Shared types across all apps
+// Shared types across all apps - aligned with PDF specification
 
-export interface Profile {
+export interface Employee {
   id: string;
   name: string;
-  pointBalance: number;
+  point_balance: number;
   onboarded: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface Event {
+  id: string;
+  employee_id: string;
+  type: string; // "clock_in", "clock_out", "note_added", etc.
+  timestamp: string;
+  metadata?: Record<string, unknown>; // Flexible JSON data
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Condition {
-  field: string;
+  field: string; // Can reference metadata fields like "metadata.correct_method"
   op: string;
   value?: unknown;
 }
@@ -19,7 +29,7 @@ export interface RewardRule {
   id: string;
   name: string;
   description?: string;
-  eventType: string;
+  event_type: string; // Which event.type this rule listens to
   conditions: Condition[];
   points: number;
   active: boolean;
@@ -27,8 +37,17 @@ export interface RewardRule {
   updatedAt: string;
 }
 
+export interface RewardGrant {
+  id: string;
+  rule_id: string;
+  employee_id: string;
+  event_id: string;
+  points_awarded: number;
+  createdAt: string;
+}
+
 export interface ProcessResult {
-  totalVisits: number;
+  totalEvents: number;
   totalRulesEvaluated: number;
   grantsCreated: number;
   totalPointsAwarded: number;
@@ -37,6 +56,11 @@ export interface ProcessResult {
   durationMs: number;
 }
 
+// Legacy types for backward compatibility (to be removed after migration)
+/** @deprecated Use Employee instead */
+export type Profile = Employee;
+
+/** @deprecated Use Event instead */
 export interface Visit {
   id: string;
   profileId: string;

@@ -2,10 +2,10 @@ import { eq, inArray, sql } from "drizzle-orm";
 import pLimit from "p-limit";
 import { db } from "../../../db";
 import {
-	profiles,
+	employees,
+	events,
 	rewardGrants,
 	rewardRules,
-	visits,
 } from "../../../db/schema";
 import {
 	evaluateLLMCondition,
@@ -20,20 +20,17 @@ import type { Condition, LLMEvaluation, ProcessResult } from "./types";
 const LLM_CONCURRENCY = 5;
 const llmLimit = pLimit(LLM_CONCURRENCY);
 
-function visitToRecord(
-	visit: typeof visits.$inferSelect,
+function eventToRecord(
+	event: typeof events.$inferSelect,
 ): Record<string, unknown> {
 	return {
-		id: visit.id,
-		profileId: visit.profileId,
-		clockInTime: visit.clockInTime,
-		clockOutTime: visit.clockOutTime,
-		scheduledStartTime: visit.scheduledStartTime,
-		scheduledEndTime: visit.scheduledEndTime,
-		correctClockInMethod: visit.correctClockInMethod,
-		documentation: visit.documentation,
-		createdAt: visit.createdAt,
-		updatedAt: visit.updatedAt,
+		id: event.id,
+		employee_id: event.employee_id,
+		type: event.type,
+		timestamp: event.timestamp,
+		...event.metadata, // Spread metadata fields to top level
+		createdAt: event.createdAt,
+		updatedAt: event.updatedAt,
 	};
 }
 
@@ -51,7 +48,7 @@ function dispatchLLMCondition(
 	}
 }
 
-async function evaluateLLMConditionsForVisit(
+async function evaluateLLMConditionsForEvent(
 	conditions: Condition[],
 	record: Record<string, unknown>,
 ): Promise<boolean> {
@@ -72,12 +69,12 @@ async function evaluateLLMConditionsForVisit(
 	return results.every((result) => result.match);
 }
 
-export async function processVisits(
-	visitIds?: string[],
+export async function processEvents(
+	eventIds?: string[],
 ): Promise<ProcessResult> {
 	const start = Date.now();
 	const result: ProcessResult = {
-		totalVisits: 0,
+		totalEvents: 0,
 		totalRulesEvaluated: 0,
 		grantsCreated: 0,
 		totalPointsAwarded: 0,
@@ -97,14 +94,14 @@ export async function processVisits(
 		return result;
 	}
 
-	// 2. Fetch visits
-	const visitList = visitIds
-		? await db.select().from(visits).where(inArray(visits.id, visitIds))
-		: await db.select().from(visits);
+	// 2. Fetch events
+	const eventList = eventIds
+		? await db.select().from(events).where(inArray(events.id, eventIds))
+		: await db.select().from(events);
 
-	result.totalVisits = visitList.length;
+	result.totalEvents = eventList.length;
 
-	if (visitList.length === 0) {
+	if (eventList.length === 0) {
 		result.durationMs = Date.now() - start;
 		return result;
 	}
@@ -112,33 +109,33 @@ export async function processVisits(
 	// 3. Fetch existing grants in bulk (for idempotency check)
 	const existingGrants = await db
 		.select({
-			ruleId: rewardGrants.ruleId,
-			visitId: rewardGrants.visitId,
+			rule_id: rewardGrants.rule_id,
+			event_id: rewardGrants.event_id,
 		})
 		.from(rewardGrants);
 
 	const existingSet = new Set(
-		existingGrants.map((g) => `${g.ruleId}:${g.visitId}`),
+		existingGrants.map((g) => `${g.rule_id}:${g.event_id}`),
 	);
 
-	// 4. Evaluate rules against visits
+	// 4. Evaluate rules against events
 	const grantsToInsert: Array<{
-		ruleId: string;
-		profileId: string;
-		visitId: string;
-		pointsAwarded: number;
+		rule_id: string;
+		employee_id: string;
+		event_id: string;
+		points_awarded: number;
 	}> = [];
 
-	// Track points per profile for batch update
+	// Track points per employee for batch update
 	const pointsDelta: Record<string, number> = {};
 
-	for (const visit of visitList) {
-		const record = visitToRecord(visit);
+	for (const event of eventList) {
+		const record = eventToRecord(event);
 
 		for (const rule of rules) {
 			result.totalRulesEvaluated++;
 
-			const grantKey = `${rule.id}:${visit.id}`;
+			const grantKey = `${rule.id}:${event.id}`;
 			if (existingSet.has(grantKey)) {
 				result.skippedExisting++;
 				continue;
@@ -153,14 +150,14 @@ export async function processVisits(
 			// Then evaluate LLM conditions if needed (slow)
 			if (hasLLMConditions(conditions)) {
 				try {
-					const llmMatch = await evaluateLLMConditionsForVisit(
+					const llmMatch = await evaluateLLMConditionsForEvent(
 						conditions,
 						record,
 					);
 					if (!llmMatch) continue;
 				} catch (err) {
 					result.errors.push(
-						`LLM error for visit ${visit.id}: ${(err as Error).message}`,
+						`LLM error for event ${event.id}: ${(err as Error).message}`,
 					);
 					continue;
 				}
@@ -168,14 +165,14 @@ export async function processVisits(
 
 			// Match! Prepare grant
 			grantsToInsert.push({
-				ruleId: rule.id,
-				profileId: visit.profileId,
-				visitId: visit.id,
-				pointsAwarded: rule.points,
+				rule_id: rule.id,
+				employee_id: event.employee_id,
+				event_id: event.id,
+				points_awarded: rule.points,
 			});
 
-			pointsDelta[visit.profileId] =
-				(pointsDelta[visit.profileId] || 0) + rule.points;
+			pointsDelta[event.employee_id] =
+				(pointsDelta[event.employee_id] || 0) + rule.points;
 		}
 	}
 
@@ -190,15 +187,15 @@ export async function processVisits(
 				await tx.insert(rewardGrants).values(chunk);
 			}
 
-			// Update profile balances
-			for (const [profileId, delta] of Object.entries(pointsDelta)) {
+			// Update employee balances
+			for (const [employeeId, delta] of Object.entries(pointsDelta)) {
 				await tx
-					.update(profiles)
+					.update(employees)
 					.set({
-						pointBalance: sql`${profiles.pointBalance} + ${delta}`,
+						point_balance: sql`${employees.point_balance} + ${delta}`,
 						updatedAt: new Date(),
 					})
-					.where(eq(profiles.id, profileId));
+					.where(eq(employees.id, employeeId));
 			}
 		});
 

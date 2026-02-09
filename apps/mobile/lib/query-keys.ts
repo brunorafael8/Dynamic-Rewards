@@ -13,13 +13,13 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.rules.details(), id] as const,
   },
 
-  profiles: {
-    all: ['profiles'] as const,
-    lists: () => [...queryKeys.profiles.all, 'list'] as const,
+  employees: {
+    all: ['employees'] as const,
+    lists: () => [...queryKeys.employees.all, 'list'] as const,
     list: (limit?: number, offset?: number) =>
-      [...queryKeys.profiles.lists(), { limit, offset }] as const,
-    details: () => [...queryKeys.profiles.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.profiles.details(), id] as const,
+      [...queryKeys.employees.lists(), { limit, offset }] as const,
+    details: () => [...queryKeys.employees.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.employees.details(), id] as const,
   },
 
   processing: {

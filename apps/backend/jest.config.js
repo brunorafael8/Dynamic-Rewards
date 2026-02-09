@@ -7,13 +7,25 @@ const config = {
 	roots: ["<rootDir>/tests"],
 	moduleNameMapper: {
 		"^@/(.*)$": "<rootDir>/src/$1",
+		"^p-retry$": "<rootDir>/jest-mocks/p-retry.js",
+		"^is-network-error$": "<rootDir>/jest-mocks/is-network-error.js",
 	},
 	transformIgnorePatterns: [
-		"node_modules/(?!(p-limit|yocto-queue|p-retry|is-network-error)/)",
+		"/node_modules/(?!p-limit|yocto-queue)/",
 	],
 	transform: {
-		"^.+\\.tsx?$": "ts-jest",
-		"^.+\\.js$": "ts-jest",
+		"^.+\\.tsx?$": [
+			"ts-jest",
+			{
+				useESM: false,
+				tsconfig: {
+					module: "commonjs",
+					target: "ES2022",
+					esModuleInterop: true,
+					allowSyntheticDefaultImports: true,
+				},
+			},
+		],
 	},
 };
 

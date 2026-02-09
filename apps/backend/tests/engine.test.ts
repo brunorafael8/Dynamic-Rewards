@@ -2,18 +2,18 @@ import {
 	evaluateAllConditions,
 	evaluateCondition,
 } from "../src/modules/rules/engine/operators";
-import { buildCondition, buildVisit } from "./helpers";
+import { buildCondition, buildEvent } from "./helpers";
 
 describe("Rule Engine - Operators", () => {
 	describe("eq operator", () => {
 		it("should match when values are equal", () => {
-			const record = buildVisit({ correctClockInMethod: true });
+			const record = buildEvent({ correctClockInMethod: true });
 			const condition = buildCondition("correctClockInMethod", "eq", true);
 			expect(evaluateCondition(condition, record)).toBe(true);
 		});
 
 		it("should not match when values differ", () => {
-			const record = buildVisit({ correctClockInMethod: false });
+			const record = buildEvent({ correctClockInMethod: false });
 			const condition = buildCondition("correctClockInMethod", "eq", true);
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
@@ -21,13 +21,13 @@ describe("Rule Engine - Operators", () => {
 
 	describe("neq operator", () => {
 		it("should match when values are different", () => {
-			const record = buildVisit({ documentation: "Some text" });
+			const record = buildEvent({ documentation: "Some text" });
 			const condition = buildCondition("documentation", "neq", null);
 			expect(evaluateCondition(condition, record)).toBe(true);
 		});
 
 		it("should not match when values are equal", () => {
-			const record = buildVisit({ documentation: null });
+			const record = buildEvent({ documentation: null });
 			const condition = buildCondition("documentation", "neq", null);
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
@@ -35,19 +35,19 @@ describe("Rule Engine - Operators", () => {
 
 	describe("not_null operator", () => {
 		it("should match when field has a value", () => {
-			const record = buildVisit({ clockInTime: new Date() });
+			const record = buildEvent({ clockInTime: new Date() });
 			const condition = buildCondition("clockInTime", "not_null");
 			expect(evaluateCondition(condition, record)).toBe(true);
 		});
 
 		it("should not match when field is null", () => {
-			const record = buildVisit({ clockInTime: null });
+			const record = buildEvent({ clockInTime: null });
 			const condition = buildCondition("clockInTime", "not_null");
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
 
 		it("should not match when field is undefined", () => {
-			const record = buildVisit({ clockInTime: undefined });
+			const record = buildEvent({ clockInTime: undefined });
 			const condition = buildCondition("clockInTime", "not_null");
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
@@ -55,13 +55,13 @@ describe("Rule Engine - Operators", () => {
 
 	describe("is_null operator", () => {
 		it("should match when field is null", () => {
-			const record = buildVisit({ documentation: null });
+			const record = buildEvent({ documentation: null });
 			const condition = buildCondition("documentation", "is_null");
 			expect(evaluateCondition(condition, record)).toBe(true);
 		});
 
 		it("should not match when field has value", () => {
-			const record = buildVisit({ documentation: "text" });
+			const record = buildEvent({ documentation: "text" });
 			const condition = buildCondition("documentation", "is_null");
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
@@ -71,7 +71,7 @@ describe("Rule Engine - Operators", () => {
 		it("should match when field <= other field (early clock-in)", () => {
 			const clockIn = new Date("2024-01-15T08:00:00Z");
 			const scheduled = new Date("2024-01-15T09:00:00Z");
-			const record = buildVisit({
+			const record = buildEvent({
 				clockInTime: clockIn,
 				scheduledStartTime: scheduled,
 			});
@@ -86,7 +86,7 @@ describe("Rule Engine - Operators", () => {
 		it("should not match when field > other field (late clock-in)", () => {
 			const clockIn = new Date("2024-01-15T10:00:00Z");
 			const scheduled = new Date("2024-01-15T09:00:00Z");
-			const record = buildVisit({
+			const record = buildEvent({
 				clockInTime: clockIn,
 				scheduledStartTime: scheduled,
 			});
@@ -99,7 +99,7 @@ describe("Rule Engine - Operators", () => {
 		});
 
 		it("should return false when other field is missing", () => {
-			const record = buildVisit({ clockInTime: new Date() });
+			const record = buildEvent({ clockInTime: new Date() });
 			const condition = buildCondition(
 				"clockInTime",
 				"lte_field",
@@ -113,7 +113,7 @@ describe("Rule Engine - Operators", () => {
 		it("should match when field >= other field", () => {
 			const clockOut = new Date("2024-01-15T18:00:00Z");
 			const scheduled = new Date("2024-01-15T17:00:00Z");
-			const record = buildVisit({
+			const record = buildEvent({
 				clockOutTime: clockOut,
 				scheduledEndTime: scheduled,
 			});
@@ -128,7 +128,7 @@ describe("Rule Engine - Operators", () => {
 		it("should not match when field < other field", () => {
 			const clockOut = new Date("2024-01-15T16:00:00Z");
 			const scheduled = new Date("2024-01-15T17:00:00Z");
-			const record = buildVisit({
+			const record = buildEvent({
 				clockOutTime: clockOut,
 				scheduledEndTime: scheduled,
 			});
@@ -143,7 +143,7 @@ describe("Rule Engine - Operators", () => {
 
 	describe("contains operator", () => {
 		it("should match when string contains substring (case insensitive)", () => {
-			const record = buildVisit({ documentation: "Follow-up needed" });
+			const record = buildEvent({ documentation: "Follow-up needed" });
 			const condition = buildCondition(
 				"documentation",
 				"contains",
@@ -153,19 +153,19 @@ describe("Rule Engine - Operators", () => {
 		});
 
 		it("should match with different casing", () => {
-			const record = buildVisit({ documentation: "URGENT CASE" });
+			const record = buildEvent({ documentation: "URGENT CASE" });
 			const condition = buildCondition("documentation", "contains", "urgent");
 			expect(evaluateCondition(condition, record)).toBe(true);
 		});
 
 		it("should not match when substring is not found", () => {
-			const record = buildVisit({ documentation: "Regular visit" });
+			const record = buildEvent({ documentation: "Regular visit" });
 			const condition = buildCondition("documentation", "contains", "urgent");
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
 
 		it("should return false for non-string fields", () => {
-			const record = buildVisit({ correctClockInMethod: true });
+			const record = buildEvent({ correctClockInMethod: true });
 			const condition = buildCondition(
 				"correctClockInMethod",
 				"contains",
@@ -202,7 +202,7 @@ describe("Rule Engine - Operators", () => {
 
 	describe("evaluateAllConditions", () => {
 		it("should return true when all conditions match (AND logic)", () => {
-			const record = buildVisit({
+			const record = buildEvent({
 				correctClockInMethod: true,
 				documentation: "Completed",
 			});
@@ -214,7 +214,7 @@ describe("Rule Engine - Operators", () => {
 		});
 
 		it("should return false when any condition fails", () => {
-			const record = buildVisit({
+			const record = buildEvent({
 				correctClockInMethod: false,
 				documentation: "Completed",
 			});
@@ -226,26 +226,26 @@ describe("Rule Engine - Operators", () => {
 		});
 
 		it("should return true for empty conditions array", () => {
-			const record = buildVisit();
+			const record = buildEvent();
 			expect(evaluateAllConditions([], record)).toBe(true);
 		});
 	});
 
 	describe("edge cases", () => {
 		it("should return false for unknown operator", () => {
-			const record = buildVisit();
+			const record = buildEvent();
 			const condition = buildCondition("field", "unknown_op", "value");
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
 
 		it("should return false when field does not exist", () => {
-			const record = buildVisit();
+			const record = buildEvent();
 			const condition = buildCondition("nonExistentField", "eq", true);
 			expect(evaluateCondition(condition, record)).toBe(false);
 		});
 
 		it("should skip LLM conditions (handled separately)", () => {
-			const record = buildVisit({ documentation: "Some text" });
+			const record = buildEvent({ documentation: "Some text" });
 			const condition = buildCondition(
 				"documentation",
 				"llm",

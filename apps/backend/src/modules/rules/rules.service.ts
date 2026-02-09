@@ -7,7 +7,7 @@ import type { Condition } from "./rules.schema";
 interface CreateRuleInput {
 	name: string;
 	description?: string;
-	eventType: string;
+	event_type: string;
 	conditions: Condition[];
 	points: number;
 }
@@ -15,7 +15,7 @@ interface CreateRuleInput {
 interface UpdateRuleInput {
 	name?: string;
 	description?: string;
-	eventType?: string;
+	event_type?: string;
 	conditions?: Condition[];
 	points?: number;
 	active?: boolean;
@@ -27,7 +27,7 @@ export async function createRule(input: CreateRuleInput) {
 		.values({
 			name: input.name,
 			description: input.description,
-			eventType: input.eventType,
+			event_type: input.event_type,
 			conditions: input.conditions,
 			points: input.points,
 		})

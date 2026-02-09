@@ -5,7 +5,7 @@ export interface Condition {
 }
 
 export interface ProcessResult {
-	totalVisits: number;
+	totalEvents: number;
 	totalRulesEvaluated: number;
 	grantsCreated: number;
 	totalPointsAwarded: number;

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { db } from "./index";
-import { profiles, rewardGrants, rewardRules, visits } from "./schema";
+import { employees, events, rewardGrants, rewardRules } from "./schema";
 
 interface SeedProfile {
 	id: string;
@@ -44,63 +44,67 @@ async function seed() {
 	const data: SeedData = JSON.parse(raw);
 
 	console.log(
-		`Found ${data.profiles.length} profiles, ${data.visits.length} visits`,
+		`Found ${data.profiles.length} employees, ${data.visits.length} events`,
 	);
 
 	// Clear existing data (order matters due to foreign keys)
 	console.log("Clearing existing data...");
 	await db.delete(rewardGrants);
 	await db.delete(rewardRules);
-	await db.delete(visits);
-	await db.delete(profiles);
+	await db.delete(events);
+	await db.delete(employees);
 
-	// Insert profiles
-	console.log("Inserting profiles...");
-	await db.insert(profiles).values(
+	// Insert employees (transformed from profiles)
+	console.log("Inserting employees...");
+	await db.insert(employees).values(
 		data.profiles.map((p) => ({
 			id: p.id,
 			name: p.name,
-			pointBalance: p.pointBalance,
+			point_balance: p.pointBalance,
 			onboarded: p.onboarded,
 		})),
 	);
 
-	// Insert visits in chunks of 500
-	console.log("Inserting visits...");
-	const visitChunks = chunk(data.visits, 500);
+	// Transform visits to events: each visit becomes a "shift" event with all data in metadata
+	console.log("Inserting events...");
+	const eventChunks = chunk(data.visits, 500);
 
-	for (let i = 0; i < visitChunks.length; i++) {
-		const batch = visitChunks[i];
-		await db.insert(visits).values(
+	for (let i = 0; i < eventChunks.length; i++) {
+		const batch = eventChunks[i];
+		await db.insert(events).values(
 			batch.map((v) => ({
 				id: v.id,
-				profileId: v.profileId,
-				clockInTime: v.clockInTime ? new Date(v.clockInTime) : null,
-				clockOutTime: v.clockOutTime ? new Date(v.clockOutTime) : null,
-				scheduledStartTime: new Date(v.scheduledStartTime),
-				scheduledEndTime: new Date(v.scheduledEndTime),
-				correctClockInMethod: v.correctClockInMethod,
-				documentation: v.documentation,
+				employee_id: v.profileId,
+				type: "shift",
+				timestamp: v.clockInTime ? new Date(v.clockInTime) : new Date(v.createdAt),
+				metadata: {
+					clockInTime: v.clockInTime,
+					clockOutTime: v.clockOutTime,
+					scheduledStartTime: v.scheduledStartTime,
+					scheduledEndTime: v.scheduledEndTime,
+					correctClockInMethod: v.correctClockInMethod,
+					documentation: v.documentation,
+				},
 				createdAt: new Date(v.createdAt),
 				updatedAt: new Date(v.updatedAt),
 			})),
 		);
 		console.log(
-			`  chunk ${i + 1}/${visitChunks.length} (${batch.length} rows)`,
+			`  chunk ${i + 1}/${eventChunks.length} (${batch.length} rows)`,
 		);
 	}
 
 	// Verify counts
-	const profileCount = await db
+	const employeeCount = await db
 		.select({ count: sql<number>`count(*)` })
-		.from(profiles);
-	const visitCount = await db
+		.from(employees);
+	const eventCount = await db
 		.select({ count: sql<number>`count(*)` })
-		.from(visits);
+		.from(events);
 
 	console.log("\nSeed complete!");
-	console.log(`  Profiles: ${profileCount[0].count}`);
-	console.log(`  Visits: ${visitCount[0].count}`);
+	console.log(`  Employees: ${employeeCount[0].count}`);
+	console.log(`  Events: ${eventCount[0].count}`);
 }
 
 seed().catch((err) => {

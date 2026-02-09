@@ -1,210 +1,187 @@
-# Jolly Rewards Engine
+# Dynamic Rewards Engine
 
-Dynamic rules engine for processing employee events and granting reward points. Built for the Jolly take-home challenge.
+A flexible, data-driven reward engine that lets managers define rules in JSON and automatically awards points when employee events match those rules.
 
 ## Quick Start
 
-### Backend API
-
 ```bash
-cp .env.example .env          # Add your DATABASE_URL
-npm install
-npm run db:push               # Push schema to database
-npm run db:seed               # Load sample data
-npm run dev                   # Start server on :3000
+# Prerequisites: Node.js >= 20, pnpm >= 8
+pnpm install
+
+# Configure database
+cp apps/backend/.env.example apps/backend/.env
+# Add your DATABASE_URL (Neon PostgreSQL)
+
+# Push schema + start backend
+cd apps/backend && pnpm db:push && pnpm dev &
+
+# Seed sample data
+curl -X POST http://localhost:3000/seed
+
+# Start admin dashboard
+cd ../admin && pnpm dev
+# Backend  → http://localhost:3000
+# Admin UI → http://localhost:3001
 ```
 
-### Mobile App (Bonus)
+## Demo: Create Rule → Ingest Events → See Balances
 
-Premium React Native app built with Expo, Tamagui, and Jolly's design system.
+### 1. Create a rule
 
 ```bash
-cd mobile
-npm install
-npm start                     # Start Expo dev server
-```
-
-Scan the QR code with Expo Go to test on your device.
-
-**Features:**
-- Jolly design system (extracted colors + visual style)
-- Dark mode with smooth theme transitions
-- View and manage reward rules
-- Process visits with real-time feedback
-- Native-feel UX with Tamagui components
-
-## API Reference
-
-### Rules Management
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/rules` | Create a reward rule |
-| GET | `/rules` | List all rules (?active=true) |
-| GET | `/rules/:id` | Get rule by ID |
-| PUT | `/rules/:id` | Update a rule |
-| DELETE | `/rules/:id` | Soft-delete (set active=false) |
-
-### Event Processing
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/events/process` | Process specific visit IDs |
-| POST | `/events/process-all` | Process all unprocessed visits |
-
-### Profiles & Admin
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/profiles` | List profiles (?limit=20&offset=0) |
-| GET | `/profiles/:id` | Profile detail + grant history |
-| POST | `/seed` | Seed database from data.json |
-| GET | `/health` | Health check |
-
-## Rule DSL
-
-Rules are defined using a flexible JSON DSL. Each rule has a name, conditions (array), and points value.
-
-### Available Operators
-
-| Operator | Description | Example |
-|----------|-------------|---------|
-| `eq` | Equals | `{"field":"correctClockInMethod","op":"eq","value":true}` |
-| `neq` | Not equals | `{"field":"documentation","op":"neq","value":null}` |
-| `gt` / `gte` | Greater than (or equal) | `{"field":"pointBalance","op":"gt","value":1000}` |
-| `lt` / `lte` | Less than (or equal) | `{"field":"pointBalance","op":"lte","value":500}` |
-| `not_null` | Field has value | `{"field":"clockInTime","op":"not_null"}` |
-| `is_null` | Field is null | `{"field":"documentation","op":"is_null"}` |
-| `lte_field` | Compare to another field | `{"field":"clockInTime","op":"lte_field","value":"scheduledStartTime"}` |
-| `gte_field` | Compare to another field | `{"field":"clockOutTime","op":"gte_field","value":"scheduledEndTime"}` |
-| `contains` | String contains (case-insensitive) | `{"field":"documentation","op":"contains","value":"urgent"}` |
-| `llm` | LLM evaluation (requires API key) | `{"field":"documentation","op":"llm","value":"Is this professional?"}` |
-
-### Example Rules
-
-**Reward correct clock-in method:**
-```bash
-curl -X POST http://localhost:3000/rules \
+curl -s -X POST http://localhost:3000/rules \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Correct Clock-In Method",
+    "name": "On-Time Clock In",
+    "description": "Reward employees who clock in before scheduled start",
+    "event_type": "shift",
     "conditions": [
-      {"field": "correctClockInMethod", "op": "eq", "value": true}
-    ],
-    "points": 10
-  }'
-```
-
-**Reward early clock-in:**
-```bash
-curl -X POST http://localhost:3000/rules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Early Clock-In",
-    "conditions": [
-      {"field": "clockInTime", "op": "not_null"},
-      {"field": "clockInTime", "op": "lte_field", "value": "scheduledStartTime"}
+      { "field": "clockInTime", "op": "lte_field", "value": "scheduledStartTime" },
+      { "field": "correctClockInMethod", "op": "eq", "value": true }
     ],
     "points": 15
-  }'
+  }' | jq
 ```
 
-**LLM-powered documentation check (bonus feature):**
-```bash
-curl -X POST http://localhost:3000/rules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Helpful Documentation",
-    "conditions": [
-      {"field": "documentation", "op": "llm", "value": "Is this documentation helpful and professional?"}
-    ],
-    "points": 25
-  }'
-```
-
-## Processing Events
-
-Process all visits against active rules:
+### 2. Process events against all active rules
 
 ```bash
-curl -X POST http://localhost:3000/events/process-all | jq
+curl -s -X POST http://localhost:3000/events/process-all | jq
 ```
 
-Response:
 ```json
 {
-  "totalVisits": 5600,
-  "totalRulesEvaluated": 5600,
-  "grantsCreated": 2800,
-  "totalPointsAwarded": 28000,
+  "totalEvents": 10,
+  "rulesEvaluated": 3,
+  "grantsCreated": 4,
+  "totalPointsAwarded": 60,
   "skippedExisting": 0,
-  "errors": [],
-  "durationMs": 1234
+  "errors": []
 }
 ```
 
-Check updated balances:
+### 3. Check updated balances
+
 ```bash
-curl "http://localhost:3000/profiles?limit=5" | jq '.data[] | {name, pointBalance}'
+curl -s http://localhost:3000/employees | jq '.[] | {name, point_balance}'
 ```
+
+Or use the **Admin Dashboard** at `localhost:3001` for a visual experience with a condition builder, leaderboard, and batch processing.
 
 ## Architecture
 
-The engine separates concerns into modules: profiles, visits, rules, and events. The rule engine core uses a map-based operator dispatch pattern, making it easy to add new operators without touching existing code. All grant inserts and balance updates happen in chunks with proper idempotency (unique constraint on rule_id + visit_id).
+```
+dynamic-rewards/
+├── apps/
+│   ├── backend/    Fastify API + Rule Engine           :3000
+│   ├── admin/      Next.js 16 Dashboard                :3001
+│   └── mobile/     Expo React Native App
+├── packages/
+│   └── shared/     TypeScript types + Zod schemas
+└── turbo.json      Turborepo pipeline
+```
+
+| Layer | Tech |
+|-------|------|
+| API | Fastify 5, Drizzle ORM, Neon Postgres |
+| Validation | Zod 4 (shared schemas across all apps) |
+| AI | AI SDK 6 (Anthropic / OpenAI) |
+| Admin | Next.js 16, Tailwind v4, TanStack Query v5 |
+| Mobile | Expo 54, Tamagui, TanStack Query v5 |
+| Monorepo | Turborepo + pnpm workspaces |
+
+## Rule Engine
+
+Rules are stored as JSON with a conditions array. The engine evaluates all conditions with AND logic against event metadata:
+
+```json
+{
+  "name": "Helpful Documentation",
+  "event_type": "shift",
+  "conditions": [
+    { "field": "documentation", "op": "not_null" },
+    { "field": "documentation", "op": "llm", "value": "Is this note helpful?" }
+  ],
+  "points": 25
+}
+```
+
+### Operators (14 total)
+
+| Type | Operators |
+|------|-----------|
+| Comparison | `eq`, `neq`, `gt`, `gte`, `lt`, `lte` |
+| Null checks | `not_null`, `is_null` |
+| Cross-field | `lte_field`, `gte_field` |
+| Text | `contains`, `llm`, `sentiment`, `quality_score` |
+
+Adding a new operator = adding one entry to the operator map. Zero changes to core engine code.
+
+### Data Model
 
 ```
-src/
-├── db/                      # Drizzle schema + seed
-├── modules/
-│   ├── profiles/            # Profile endpoints
-│   ├── rules/               # CRUD + engine
-│   │   └── engine/
-│   │       ├── evaluator.ts      # Orchestrates batch processing
-│   │       ├── operators.ts      # Pure comparison functions
-│   │       ├── llm-evaluator.ts  # OpenAI integration (bonus)
-│   │       └── types.ts
-│   ├── events/              # Process visits
-│   └── admin/               # Seed + health
-└── shared/                  # Errors, env validation
+employees ──< events ──< reward_grants >── reward_rules
+              │                              │
+              │ metadata: jsonb              │ conditions: jsonb
+              │ (flexible per event type)    │ (array of {field, op, value})
 ```
+
+- **Events** use `metadata: jsonb` — any event type without schema changes
+- **Idempotency** via `UNIQUE(rule_id, event_id)` — safe to reprocess
+- **Atomic** — grants + balance updates in a single transaction
+
+## Testing
+
+```bash
+pnpm test    # 34 tests (26 unit + 8 integration)
+pnpm build   # Type-check + build all packages
+pnpm lint    # Biome (backend) + ESLint (admin)
+```
+
+Unit tests cover all 14 operators, edge cases (null/undefined/missing fields), and the AND-logic evaluator. Integration tests cover grant creation, balance updates, idempotency, and selective event processing.
 
 ## Design Decisions
 
-**Batch processing over loops:** Fetches all rules/visits/grants upfront with 3 queries instead of N queries per visit. Grants and balance updates happen in chunks of 500.
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Rule format | JSON DSL with condition arrays | New rules without code changes |
+| Event metadata | Flexible JSONB | Any event type without migrations |
+| Operator dispatch | Map-based | O(1) lookup, single-entry extension |
+| Idempotency | DB unique constraint | Crash-safe, no app-level dedup |
+| Batch processing | Chunked inserts (500) | O(1) queries regardless of dataset size |
+| LLM integration | Optional via AI SDK | Graceful degradation without API keys |
+| Monorepo | Turborepo + pnpm | Shared types, cached builds |
 
-**Idempotency via unique constraint:** Database enforces one grant per rule+visit combo. Re-processing the same visits is safe and won't double-award points.
+## LLM Extension (Bonus)
 
-**Operator extensibility:** Adding a new operator means adding one entry to the operators map. No changes to core evaluation logic.
+Three AI-powered operators for text evaluation in conditions:
 
-**Soft delete on rules:** Setting active=false preserves audit trail while excluding rules from future processing.
+- **`llm`** — sends field value + prompt to LLM, returns boolean judgment
+- **`sentiment`** — classifies text as positive/negative
+- **`quality_score`** — rates text 1-10, compares against threshold
 
-**LLM as optional bonus:** Works without OPENAI_API_KEY (graceful degradation). Throttled to 5 concurrent calls to respect rate limits.
+Concurrency is managed with `p-limit` (max 5 parallel calls). Without an API key, LLM operators return `false` and the engine continues with standard operators.
 
-## What's Next
+## API Reference
 
-If this were production:
-- Add webhook support for real-time event ingestion
-- Implement rule versioning (track changes over time)
-- Add time-based conditions (e.g., "weekday only", "after 6pm")
-- Support complex boolean logic (OR, NOT, nested groups)
-- Add metrics dashboard (grants per rule, avg processing time)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/rules` | Create reward rule |
+| `GET` | `/rules` | List rules (`?active=true`) |
+| `GET` | `/rules/:id` | Get rule details |
+| `PUT` | `/rules/:id` | Update rule |
+| `DELETE` | `/rules/:id` | Soft-delete (`active=false`) |
+| `GET` | `/employees` | List employees (`?limit=20&offset=0`) |
+| `GET` | `/employees/:id` | Employee detail + grant history |
+| `POST` | `/events/process-all` | Process all events against active rules |
+| `POST` | `/events/process` | Process specific event IDs |
+| `POST` | `/seed` | Seed sample data |
 
-## Tests
+## Environment Variables
 
 ```bash
-npm test                     # Run all tests
-npm run lint                 # Check code style
+# apps/backend/.env
+DATABASE_URL=postgresql://...     # Required
+OPENAI_API_KEY=sk-...             # Optional (LLM operators)
+ANTHROPIC_API_KEY=sk-ant-...      # Optional (LLM operators)
 ```
-
-Unit tests cover operator logic (pure functions). Integration tests validate the full flow with a real database.
-
-## Deployment
-
-```bash
-docker build -t jolly-rewards .
-docker run -p 3000:3000 -e DATABASE_URL=<url> jolly-rewards
-```
-
----
-
-Built with Fastify, Drizzle ORM, Neon (Postgres), Zod, and OpenAI.

@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FastifyPluginAsync } from "fastify";
 import { db } from "../../db";
-import { profiles, rewardGrants, rewardRules, visits } from "../../db/schema";
+import {
+	employees,
+	events,
+	rewardGrants,
+	rewardRules,
+} from "../../db/schema";
 
 interface SeedData {
 	profiles: Array<{
@@ -52,32 +57,36 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 		// Clear in order (foreign keys)
 		await db.delete(rewardGrants);
 		await db.delete(rewardRules);
-		await db.delete(visits);
-		await db.delete(profiles);
+		await db.delete(events);
+		await db.delete(employees);
 
-		// Insert profiles
-		await db.insert(profiles).values(
+		// Insert employees (transformed from profiles)
+		await db.insert(employees).values(
 			data.profiles.map((p) => ({
 				id: p.id,
 				name: p.name,
-				pointBalance: p.pointBalance,
+				point_balance: p.pointBalance,
 				onboarded: p.onboarded,
 			})),
 		);
 
-		// Insert visits in chunks
-		const visitChunks = chunk(data.visits, 500);
-		for (const batch of visitChunks) {
-			await db.insert(visits).values(
+		// Transform visits to events: each visit becomes a "shift" event with all data in metadata
+		const eventChunks = chunk(data.visits, 500);
+		for (const batch of eventChunks) {
+			await db.insert(events).values(
 				batch.map((v) => ({
 					id: v.id,
-					profileId: v.profileId,
-					clockInTime: v.clockInTime ? new Date(v.clockInTime) : null,
-					clockOutTime: v.clockOutTime ? new Date(v.clockOutTime) : null,
-					scheduledStartTime: new Date(v.scheduledStartTime),
-					scheduledEndTime: new Date(v.scheduledEndTime),
-					correctClockInMethod: v.correctClockInMethod,
-					documentation: v.documentation,
+					employee_id: v.profileId,
+					type: "shift", // Event type representing a work shift
+					timestamp: v.clockInTime ? new Date(v.clockInTime) : new Date(v.createdAt),
+					metadata: {
+						clockInTime: v.clockInTime,
+						clockOutTime: v.clockOutTime,
+						scheduledStartTime: v.scheduledStartTime,
+						scheduledEndTime: v.scheduledEndTime,
+						correctClockInMethod: v.correctClockInMethod,
+						documentation: v.documentation,
+					},
 					createdAt: new Date(v.createdAt),
 					updatedAt: new Date(v.updatedAt),
 				})),
@@ -86,8 +95,8 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 
 		return {
 			message: "Seed complete",
-			profiles: data.profiles.length,
-			visits: data.visits.length,
+			employees: data.profiles.length,
+			events: data.visits.length,
 		};
 	});
 };

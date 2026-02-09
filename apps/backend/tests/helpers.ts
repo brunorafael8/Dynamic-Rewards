@@ -1,9 +1,12 @@
 import type { Condition } from "../src/modules/rules/engine/types";
 
-export function buildVisit(overrides?: Record<string, unknown>) {
+export function buildEvent(overrides?: Record<string, unknown>) {
 	return {
-		id: "v1",
-		profileId: "p1",
+		id: "e1",
+		employee_id: "emp1",
+		type: "shift",
+		timestamp: new Date("2024-01-15T08:00:00Z"),
+		// Metadata fields spread to top level (as eventToRecord does)
 		clockInTime: new Date("2024-01-15T08:00:00Z"),
 		clockOutTime: new Date("2024-01-15T17:00:00Z"),
 		scheduledStartTime: new Date("2024-01-15T09:00:00Z"),

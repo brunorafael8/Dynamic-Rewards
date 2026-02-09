@@ -16,6 +16,8 @@ export const conditionSchema = z.object({
     "gte_field",
     "contains",
     "llm",
+    "sentiment",
+    "quality_score",
   ]),
   value: z.unknown().optional(),
 });
@@ -24,7 +26,8 @@ export const conditionSchema = z.object({
 export const createRuleSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  conditions: z.array(conditionSchema),
+  event_type: z.string().default("shift"),
+  conditions: z.array(conditionSchema).min(1),
   points: z.number().int().positive(),
 });
 

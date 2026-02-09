@@ -70,8 +70,8 @@ export const fetchRules = async (): Promise<RewardRule[]> => {
   return data;
 };
 
-export const fetchProfiles = async (limit = 20, offset = 0): Promise<{ data: Profile[]; meta: { total: number } }> => {
-  const { data } = await api.get(`/profiles?limit=${limit}&offset=${offset}`);
+export const fetchProfiles = async (limit = 20, offset = 0): Promise<{ data: Employee[]; meta: { total: number } }> => {
+  const { data } = await api.get(`/employees?limit=${limit}&offset=${offset}`);
   return data;
 };
 
