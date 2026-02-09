@@ -54,7 +54,11 @@ PORT=3000                            # Optional — defaults to 3000
 NEXT_PUBLIC_API_URL=http://localhost:3000   # Optional — defaults to localhost:3000
 ```
 
-**Mobile** — no `.env` needed for local development. Uses `localhost:3000` by default. For a physical device, update the URL in `apps/mobile/lib/api.ts` with your machine's local IP (e.g. `http://192.168.1.100:3000`).
+**Mobile** — `apps/mobile/.env` (optional)
+```bash
+EXPO_PUBLIC_API_URL=http://localhost:3000   # Optional — defaults to localhost:3000
+# For physical devices, use your machine's local IP (e.g. http://192.168.1.100:3000)
+```
 
 ## Demo: Create Rule → Ingest Events → See Balances
 
