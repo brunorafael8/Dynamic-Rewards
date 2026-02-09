@@ -152,6 +152,36 @@
               ]
             }
           }
+        },
+        {
+          "name": "Test Rule (Simulator)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metadata\": {\n    \"clockInTime\": \"2024-01-15T08:00:00Z\",\n    \"scheduledStartTime\": \"2024-01-15T09:00:00Z\",\n    \"correctClockInMethod\": true,\n    \"documentation\": \"Completed safety checklist and patient assessment.\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/rules/:id/test",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules", ":id", "test"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rule_id}}"
+                }
+              ]
+            },
+            "description": "Dry-run a rule against test metadata. Returns per-condition pass/fail with actual values. LLM conditions include reasoning text. No grants are created."
+          }
         }
       ]
     },
