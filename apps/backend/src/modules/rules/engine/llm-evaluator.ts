@@ -23,7 +23,7 @@ const sentimentSchema = z.object({
 });
 
 const qualitySchema = z.object({
-	score: z.int().describe("Quality score from 0 (poor) to 100 (excellent)"),
+	score: z.string().describe("Quality score from 0 to 100 as a number string"),
 	reasoning: z.string().describe("Brief one-sentence explanation"),
 });
 
@@ -152,9 +152,10 @@ export async function evaluateQualityScore(
 			}),
 		);
 
+		const score = Number.parseInt(object.score, 10);
 		return {
-			match: object.score >= threshold,
-			confidence: object.score / 100,
+			match: score >= threshold,
+			confidence: score / 100,
 			reasoning: object.reasoning,
 		};
 	} catch (err) {

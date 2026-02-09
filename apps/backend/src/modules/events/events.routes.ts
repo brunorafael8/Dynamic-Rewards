@@ -13,9 +13,11 @@ export const eventRoutes: FastifyPluginAsync = async (app) => {
 		return processEvents(eventIds);
 	});
 
-	// Process all events
+	// Process all events (or limit with ?limit=N query param)
 	app.post("/process-all", async (request) => {
-		request.log.info("Processing all events against active rules...");
-		return processEvents();
+		const query = request.query as { limit?: string };
+		const limit = query.limit ? Number.parseInt(query.limit, 10) : undefined;
+		request.log.info(`Processing ${limit || "all"} events against active rules...`);
+		return processEvents(undefined, limit);
 	});
 };

@@ -71,6 +71,7 @@ async function evaluateLLMConditionsForEvent(
 
 export async function processEvents(
 	eventIds?: string[],
+	limit?: number,
 ): Promise<ProcessResult> {
 	const start = Date.now();
 	const result: ProcessResult = {
@@ -95,9 +96,14 @@ export async function processEvents(
 	}
 
 	// 2. Fetch events
-	const eventList = eventIds
-		? await db.select().from(events).where(inArray(events.id, eventIds))
-		: await db.select().from(events);
+	let query = db.select().from(events);
+	if (eventIds) {
+		query = query.where(inArray(events.id, eventIds));
+	}
+	if (limit) {
+		query = query.limit(limit);
+	}
+	const eventList = await query;
 
 	result.totalEvents = eventList.length;
 
