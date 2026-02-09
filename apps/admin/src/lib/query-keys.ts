@@ -23,4 +23,8 @@ export const queryKeys = {
     all: ["dashboard"] as const,
     metrics: () => [...queryKeys.dashboard.all, "metrics"] as const,
   },
+  llm: {
+    all: ["llm"] as const,
+    analytics: ["llm", "analytics"] as const,
+  },
 } as const;

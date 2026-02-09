@@ -7,6 +7,7 @@ import {
   BookOpen,
   Users,
   Zap,
+  Settings,
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/rules", label: "Rules", icon: BookOpen },
   { href: "/employees", label: "Employees", icon: Users },
   { href: "/processing", label: "Processing", icon: Zap },
+  { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 interface SidebarProps {

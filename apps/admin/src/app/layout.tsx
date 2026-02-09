@@ -3,6 +3,7 @@ import { Outfit, DM_Sans } from "next/font/google";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { AppShell } from "@/components/layout/app-shell";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -33,6 +34,7 @@ export default function RootLayout({
         <ThemeProvider>
           <QueryProvider>
             <AppShell>{children}</AppShell>
+            <Toaster richColors />
           </QueryProvider>
         </ThemeProvider>
       </body>

@@ -86,3 +86,36 @@ export const processEvents = async (): Promise<ProcessResult> => {
   const { data } = await api.post('/events/process-all');
   return data;
 };
+
+export interface LLMAnalyticsSummary {
+  summary: {
+    totalCalls: number;
+    cachedCalls: number;
+    cacheHitRate: string;
+    totalCost: string;
+    costSavings: string;
+    savingsMultiplier: string;
+    avgLatency: string;
+  };
+  complexity: {
+    simple: string;
+    complex: string;
+    ultraComplex: string;
+  };
+  models: Record<string, number>;
+  cache: {
+    entries: number;
+    totalHits: number;
+    avgHitsPerEntry: string;
+  };
+}
+
+export const fetchLLMAnalytics = async (): Promise<LLMAnalyticsSummary> => {
+  const { data } = await api.get('/analytics/llm/summary');
+  return data;
+};
+
+export const clearLLMAnalytics = async (): Promise<{ message: string }> => {
+  const { data } = await api.delete('/analytics/llm');
+  return data;
+};

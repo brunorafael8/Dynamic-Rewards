@@ -26,4 +26,9 @@ export const queryKeys = {
     all: ['processing'] as const,
     results: () => [...queryKeys.processing.all, 'results'] as const,
   },
+
+  llm: {
+    all: ['llm'] as const,
+    analytics: ['llm', 'analytics'] as const,
+  },
 } as const;
