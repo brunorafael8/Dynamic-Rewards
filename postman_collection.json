@@ -1,0 +1,328 @@
+{
+  "info": {
+    "name": "DynamicRewards API",
+    "description": "Flexible reward rules engine with LLM-powered conditions",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Rules",
+      "item": [
+        {
+          "name": "Create Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"On-Time Clock In\",\n  \"description\": \"Reward employees who clock in before scheduled start\",\n  \"event_type\": \"shift\",\n  \"conditions\": [\n    {\n      \"field\": \"clockInTime\",\n      \"op\": \"lte_field\",\n      \"value\": \"scheduledStartTime\"\n    },\n    {\n      \"field\": \"correctClockInMethod\",\n      \"op\": \"eq\",\n      \"value\": true\n    }\n  ],\n  \"points\": 15\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/rules",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules"]
+            }
+          }
+        },
+        {
+          "name": "Create LLM Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Quality Documentation\",\n  \"description\": \"Reward high-quality visit documentation\",\n  \"event_type\": \"shift\",\n  \"conditions\": [\n    {\n      \"field\": \"documentation\",\n      \"op\": \"not_null\"\n    },\n    {\n      \"field\": \"documentation\",\n      \"op\": \"llm\",\n      \"value\": \"Is this documentation thorough and professional?\"\n    }\n  ],\n  \"points\": 25\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/rules",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules"]
+            }
+          }
+        },
+        {
+          "name": "List Rules",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/rules",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules"]
+            }
+          }
+        },
+        {
+          "name": "List Active Rules",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/rules?active=true",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules"],
+              "query": [
+                {
+                  "key": "active",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Rule by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/rules/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rule_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Rule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Rule Name\",\n  \"points\": 20\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/rules/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rule_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Rule (Soft)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:3000/rules/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["rules", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rule_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Process All Events",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3000/events/process-all",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["events", "process-all"]
+            }
+          }
+        },
+        {
+          "name": "Process Limited Events (Demo)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3000/events/process-all?limit=10",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["events", "process-all"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Process only first 10 events (good for LLM demo)"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Process Specific Events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_ids\": [\n    \"event-id-1\",\n    \"event-id-2\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/events/process",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["events", "process"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employees",
+      "item": [
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/employees",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["employees"]
+            }
+          }
+        },
+        {
+          "name": "List Employees (Paginated)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/employees?limit=20&offset=0",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["employees"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employee by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/employees/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["employees", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{employee_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Seed Database",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3000/seed",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["seed"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "rule_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employee_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
