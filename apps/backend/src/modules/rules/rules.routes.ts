@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod/v4";
 import {
 	createRuleBody,
 	listRulesQuery,
@@ -12,6 +13,12 @@ import {
 	listRules,
 	updateRule,
 } from "./rules.service";
+import { simulateRule } from "./engine/simulator";
+import type { Condition } from "./engine/types";
+
+const simulateBody = z.object({
+	metadata: z.record(z.string(), z.unknown()),
+});
 
 export const ruleRoutes: FastifyPluginAsync = async (app) => {
 	app.post("/", async (request, reply) => {
@@ -39,5 +46,14 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 	app.delete("/:id", async (request) => {
 		const { id } = ruleParams.parse(request.params);
 		return deleteRule(id);
+	});
+
+	// Rule simulator: dry-run a rule against test metadata
+	app.post("/:id/test", async (request) => {
+		const { id } = ruleParams.parse(request.params);
+		const { metadata } = simulateBody.parse(request.body);
+		const rule = await getRule(id);
+		const conditions = rule.conditions as Condition[];
+		return simulateRule(conditions, metadata);
 	});
 };

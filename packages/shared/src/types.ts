@@ -46,6 +46,13 @@ export interface RewardGrant {
   createdAt: string;
 }
 
+export interface RuleBreakdown {
+  ruleId: string;
+  ruleName: string;
+  matchCount: number;
+  pointsAwarded: number;
+}
+
 export interface ProcessResult {
   totalEvents: number;
   totalRulesEvaluated: number;
@@ -54,6 +61,7 @@ export interface ProcessResult {
   skippedExisting: number;
   errors: string[];
   durationMs: number;
+  ruleBreakdown: RuleBreakdown[];
 }
 
 // Legacy types for backward compatibility (to be removed after migration)

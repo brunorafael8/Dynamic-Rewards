@@ -15,7 +15,12 @@ import {
 	hasLLMConditions,
 } from "./llm-evaluator";
 import { evaluateAllConditions } from "./operators";
-import type { Condition, LLMEvaluation, ProcessResult } from "./types";
+import type {
+	Condition,
+	LLMEvaluation,
+	ProcessResult,
+	RuleBreakdown,
+} from "./types";
 
 const LLM_CONCURRENCY = 5;
 const llmLimit = pLimit(LLM_CONCURRENCY);
@@ -82,6 +87,7 @@ export async function processEvents(
 		skippedExisting: 0,
 		errors: [],
 		durationMs: 0,
+		ruleBreakdown: [],
 	};
 
 	// 1. Fetch active rules
@@ -135,6 +141,19 @@ export async function processEvents(
 	// Track points per employee for batch update
 	const pointsDelta: Record<string, number> = {};
 
+	// Track per-rule breakdown
+	const ruleBreakdownMap = new Map<
+		string,
+		{ name: string; matchCount: number; pointsAwarded: number }
+	>();
+	for (const rule of rules) {
+		ruleBreakdownMap.set(rule.id, {
+			name: rule.name,
+			matchCount: 0,
+			pointsAwarded: 0,
+		});
+	}
+
 	for (const event of eventList) {
 		const record = eventToRecord(event);
 
@@ -179,6 +198,13 @@ export async function processEvents(
 
 			pointsDelta[event.employee_id] =
 				(pointsDelta[event.employee_id] || 0) + rule.points;
+
+			// Track per-rule breakdown
+			const breakdown = ruleBreakdownMap.get(rule.id);
+			if (breakdown) {
+				breakdown.matchCount++;
+				breakdown.pointsAwarded += rule.points;
+			}
 		}
 	}
 
@@ -211,6 +237,16 @@ export async function processEvents(
 			0,
 		);
 	}
+
+	// Build per-rule breakdown
+	result.ruleBreakdown = Array.from(ruleBreakdownMap.entries()).map(
+		([ruleId, data]) => ({
+			ruleId,
+			ruleName: data.name,
+			matchCount: data.matchCount,
+			pointsAwarded: data.pointsAwarded,
+		}),
+	);
 
 	result.durationMs = Date.now() - start;
 	return result;

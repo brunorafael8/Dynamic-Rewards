@@ -4,6 +4,13 @@ export interface Condition {
 	value?: unknown;
 }
 
+export interface RuleBreakdown {
+	ruleId: string;
+	ruleName: string;
+	matchCount: number;
+	pointsAwarded: number;
+}
+
 export interface ProcessResult {
 	totalEvents: number;
 	totalRulesEvaluated: number;
@@ -11,6 +18,22 @@ export interface ProcessResult {
 	totalPointsAwarded: number;
 	skippedExisting: number;
 	errors: string[];
+	durationMs: number;
+	ruleBreakdown: RuleBreakdown[];
+}
+
+export interface SimulationConditionResult {
+	field: string;
+	op: string;
+	value: unknown;
+	actual: unknown;
+	passed: boolean;
+	reasoning?: string;
+}
+
+export interface SimulationResult {
+	matches: boolean;
+	conditionResults: SimulationConditionResult[];
 	durationMs: number;
 }
 
