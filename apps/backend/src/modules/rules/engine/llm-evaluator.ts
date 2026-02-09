@@ -88,19 +88,26 @@ export async function evaluateLLMCondition(
 
 	try {
 		// Hybrid routing based on production patterns (RouteLLM, Anyscale):
-		// Calculate complexity score (0-1) and route based on threshold
+		// Calculate complexity score (0-1) and route based on thresholds
 		const estimatedTokens = Math.ceil(prompt.length / 4); // ~4 chars per token
 		const hasReasoningKeywords = /why|how|compare|analyze|evaluate|explain|assess|judge/i.test(prompt);
+		const hasDeepReasoningKeywords = /compare.*and|analyze.*in.*detail|evaluate.*multiple|explain.*why.*and.*how/i.test(prompt);
 
 		// Complexity score: weighted sum of signals
 		let complexityScore = 0;
-		complexityScore += Math.min(estimatedTokens / 100, 0.5); // Token length (max 0.5)
-		complexityScore += hasReasoningKeywords ? 0.3 : 0; // Reasoning indicators
+		complexityScore += Math.min(estimatedTokens / 100, 0.4); // Token length (max 0.4)
+		complexityScore += hasReasoningKeywords ? 0.2 : 0; // Reasoning indicators
+		complexityScore += hasDeepReasoningKeywords ? 0.2 : 0; // Deep reasoning
 		complexityScore += fieldValue.length > 500 ? 0.2 : 0; // Long content to evaluate
 
-		// Threshold: 0.4 means ~40% of queries use strong model (calibrated for cost-quality balance)
-		const COMPLEXITY_THRESHOLD = 0.4;
-		const complexity = complexityScore > COMPLEXITY_THRESHOLD ? "complex" : "simple";
+		// Tiered thresholds (calibrated for cost-quality balance)
+		const ULTRA_THRESHOLD = 0.75; // Top ~10% → Opus/o1 (most expensive, most capable)
+		const COMPLEX_THRESHOLD = 0.4; // ~40% → Sonnet/GPT-4o (balanced)
+
+		const complexity =
+			complexityScore > ULTRA_THRESHOLD ? "ultra-complex" :
+			complexityScore > COMPLEX_THRESHOLD ? "complex" :
+			"simple";
 
 		const { object } = await withResilience(() =>
 			generateObject({

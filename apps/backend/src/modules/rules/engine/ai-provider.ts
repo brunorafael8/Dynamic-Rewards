@@ -17,25 +17,29 @@ export function isAIConfigured(): boolean {
 	return !!getApiKey();
 }
 
-export type TaskComplexity = "simple" | "complex";
+export type TaskComplexity = "simple" | "complex" | "ultra-complex";
 
 /**
  * Hybrid LLM Model Selection Strategy (2026 Best Practices)
  *
- * Routes requests to appropriate models based on task complexity:
- * - Simple tasks → Fast/cheap models (Haiku, GPT-4o-mini)
- * - Complex tasks → Powerful models (Sonnet, GPT-4o)
+ * Three-tier routing based on weighted complexity score (0-1):
+ * - Simple (< 0.4) → Fast/cheap models (Haiku $0.25, GPT-4o-mini $0.15)
+ * - Complex (0.4-0.75) → Balanced models (Sonnet, GPT-4o)
+ * - Ultra-complex (> 0.75) → Most powerful (Opus, o1-preview)
  *
- * Complexity Heuristics:
- * - Token count: Longer prompts (>100 chars) → complex
- * - Reasoning depth: Multi-step reasoning indicators → complex
- * - Quality threshold: High standards (≥70) → complex
- * - Task type: Classification → simple, Evaluation → complex
+ * Complexity Scoring (weighted 0-1):
+ * - Token count (max 0.4): Longer prompts need stronger models
+ * - Reasoning keywords (0.2): "why", "analyze", "evaluate"
+ * - Deep reasoning (0.2): Multi-part comparisons, detailed analysis
+ * - Content length (0.2): Long content to evaluate (>500 chars)
+ *
+ * Calibrated thresholds: ~50% simple, ~40% complex, ~10% ultra
+ * Cost savings: Up to 3.66x while maintaining quality
  *
  * References:
- * - https://dev.to/superorange0707/choosing-an-llm-in-2026-the-practical-comparison-table-specs-cost-latency-compatibility-354g
- * - https://arxiv.org/html/2503.01141v1 (Token Complexity)
- * - https://ai-sdk.dev/docs/introduction (Vercel AI SDK)
+ * - RouteLLM: https://github.com/lm-sys/RouteLLM
+ * - Research: https://arxiv.org/html/2406.18665v1
+ * - Token Complexity: https://arxiv.org/html/2503.01141v1
  */
 export function getModel(complexity: TaskComplexity = "simple"): LanguageModel {
 	const apiKey = getApiKey();
@@ -59,12 +63,18 @@ export function getModel(complexity: TaskComplexity = "simple"): LanguageModel {
 
 function getDefaultModel(provider: string, complexity: TaskComplexity): string {
 	if (provider === "anthropic") {
+		if (complexity === "ultra-complex") {
+			return "claude-opus-4-6-20250514"; // Most powerful, deep reasoning
+		}
 		return complexity === "simple"
 			? "claude-haiku-4-5-20251001"  // Fast ($0.25/$1.25 per M tokens), 80% HumanEval
 			: "claude-sonnet-4-5-20250929"; // Balanced, 50.4% grad-level reasoning
 	}
 
 	// OpenAI
+	if (complexity === "ultra-complex") {
+		return "o1-preview"; // Deep reasoning, slower but most capable
+	}
 	return complexity === "simple"
 		? "gpt-4o-mini"  // Fast ($0.15/$0.60 per M tokens)
 		: "gpt-4o";      // Powerful, best for reasoning

@@ -40,7 +40,7 @@ dynamic-rewards/
 │   │   ├── src/
 │   │   │   ├── db/                    # Drizzle ORM + Neon
 │   │   │   ├── modules/
-│   │   │   │   ├── profiles/          # GET /profiles
+│   │   │   │   ├── employees/         # GET /employees
 │   │   │   │   ├── rules/             # CRUD /rules + engine
 │   │   │   │   ├── events/            # POST /events/process-all
 │   │   │   │   └── admin/             # Health + seed
@@ -55,7 +55,7 @@ dynamic-rewards/
 │   │   ├── app/
 │   │   │   ├── (tabs)/
 │   │   │   │   ├── index.tsx          # Rules List
-│   │   │   │   └── two.tsx            # Process Visits
+│   │   │   │   └── processing.tsx     # Process Events
 │   │   │   └── _layout.tsx            # Root provider
 │   │   ├── lib/
 │   │   │   ├── api.ts                 # Axios + TanStack Query
@@ -69,7 +69,7 @@ dynamic-rewards/
 ├── packages/
 │   └── shared/           # Shared types + schemas (@dynamic-rewards/shared)
 │       └── src/
-│           ├── types.ts               # Profile, RewardRule, Condition
+│           ├── types.ts               # Employee, RewardRule, Condition, Event
 │           └── schemas.ts             # Zod validation
 │
 ├── turbo.json            # Turborepo task pipeline
@@ -104,40 +104,37 @@ dynamic-rewards/
 | Zod | 4.x | Validation |
 
 ### Shared (`packages/shared`)
-- TypeScript types (Profile, RewardRule, Condition, Visit)
+- TypeScript types (Employee, RewardRule, Condition, Event)
 - Zod schemas (createRuleSchema, updateRuleSchema, conditionSchema)
 
 ---
 
 ## Database Schema (Drizzle)
 
-**profiles** - Employee records
+**employees** - Employee records
 ```typescript
 {
   id: uuid,
   name: text,
-  pointBalance: integer (default 0),
+  point_balance: integer (default 0),
   onboarded: boolean,
   createdAt: timestamp,
   updatedAt: timestamp
 }
 ```
 
-**visits** - Employee visit records
+**events** - Employee event records with flexible metadata
 ```typescript
 {
   id: uuid,
-  profileId: uuid → profiles.id,
-  clockInTime: timestamp,
-  clockOutTime: timestamp,
-  scheduledStartTime: timestamp,
-  scheduledEndTime: timestamp,
-  correctClockInMethod: boolean,
-  documentation: text,
+  employee_id: uuid → employees.id,
+  type: text, // "shift", "clock_in", "clock_out", "note_added", etc.
+  timestamp: timestamp,
+  metadata: jsonb, // Flexible JSON data (clockInTime, documentation, etc.)
   createdAt: timestamp,
   updatedAt: timestamp
 }
-Index: profile_id
+Index: employee_id
 ```
 
 **rewardRules** - Configurable reward rules
@@ -146,7 +143,7 @@ Index: profile_id
   id: uuid,
   name: text,
   description: text,
-  eventType: text (default 'visit'),
+  event_type: text (default 'shift'),
   conditions: jsonb,  // Array of Condition objects
   points: integer,
   active: boolean (default true),
@@ -160,13 +157,13 @@ Index: active
 ```typescript
 {
   id: uuid,
-  ruleId: uuid → rewardRules.id,
-  profileId: uuid → profiles.id,
-  visitId: uuid → visits.id,
-  pointsAwarded: integer,
+  rule_id: uuid → rewardRules.id,
+  employee_id: uuid → employees.id,
+  event_id: uuid → events.id,
+  points_awarded: integer,
   createdAt: timestamp
 }
-Unique: (rule_id, visit_id)  // Idempotency
+Unique: (rule_id, event_id)  // Idempotency
 ```
 
 ---
@@ -176,7 +173,7 @@ Unique: (rule_id, visit_id)  // Idempotency
 ### Condition Structure
 ```typescript
 interface Condition {
-  field: string;        // Visit field name
+  field: string;        // Event metadata field name
   op: Operator;         // Comparison operator
   value?: unknown;      // Comparison value (optional for not_null/is_null)
 }
@@ -211,14 +208,14 @@ interface Condition {
 ### Events
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/events/process` | Process specific visit IDs |
-| POST | `/events/process-all` | Process all visits |
+| POST | `/events/process` | Process specific event IDs |
+| POST | `/events/process-all` | Process all events |
 
-### Profiles
+### Employees
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/profiles` | List profiles (?limit=20&offset=0) |
-| GET | `/profiles/:id` | Profile detail + grants |
+| GET | `/employees` | List employees (?limit=20&offset=0) |
+| GET | `/employees/:id` | Employee detail + grants |
 
 ### Admin
 | Method | Endpoint | Description |
@@ -265,7 +262,7 @@ import { RewardRule } from '@dynamic-rewards/shared/types';
 import { createRuleSchema } from '@dynamic-rewards/shared/schemas';
 
 // Mobile
-import { Profile, ProcessResult } from '@dynamic-rewards/shared/types';
+import { Employee, ProcessResult } from '@dynamic-rewards/shared/types';
 ```
 
 ---
@@ -279,7 +276,7 @@ import { Profile, ProcessResult } from '@dynamic-rewards/shared/types';
 | **ORM** | Drizzle | Type-safe, lightweight, good DX |
 | **Conditions** | JSON DSL (array of objects) | Extensible without code changes |
 | **Operators** | Map-based dispatch | Add operator = add 1 map entry |
-| **Idempotency** | Unique (rule_id, visit_id) | Safe re-processing |
+| **Idempotency** | Unique (rule_id, event_id) | Safe re-processing |
 | **Transactions** | Atomic grants + balances | No partial state |
 | **Batch Processing** | Bulk fetch + insert (chunks of 500) | O(1) queries vs O(N) |
 | **LLM** | Optional (graceful degradation) | Works without API key |
@@ -330,7 +327,7 @@ No .env needed (uses localhost:3000 for dev)
 ### Features (Phase 1)
 - Dashboard overview (total points, active rules, grants)
 - Rules management (CRUD with visual condition builder)
-- Profiles leaderboard
+- Employees leaderboard
 - Processing history
 - LLM usage analytics
 
@@ -351,7 +348,7 @@ pnpm add @tanstack/react-query axios zod
 # - Dashboard (overview metrics)
 # - Rules table + modal form
 # - Condition builder component
-# - Profiles leaderboard
+# - Employees leaderboard
 ```
 
 ---
