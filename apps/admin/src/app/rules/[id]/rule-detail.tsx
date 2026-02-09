@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useMutation } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Pencil,
@@ -11,9 +12,15 @@ import {
   Clock,
   FileText,
   ToggleRight,
+  Play,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  FlaskConical,
 } from "lucide-react";
 import { useRule } from "@/lib/queries/use-rules";
 import { cn, formatRelativeDate } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { RuleForm } from "@/components/rules/rule-form";
 import {
   FIELD_OPTIONS,
@@ -22,6 +29,21 @@ import {
   getFieldType,
 } from "@/components/rules/condition-row";
 import type { Condition } from "@dynamic-rewards/shared/types";
+
+interface SimulationConditionResult {
+  field: string;
+  op: string;
+  value: unknown;
+  actual: unknown;
+  passed: boolean;
+  reasoning?: string;
+}
+
+interface SimulationResult {
+  matches: boolean;
+  conditionResults: SimulationConditionResult[];
+  durationMs: number;
+}
 
 const FIELD_ICONS: Record<string, typeof Clock> = {
   clockInTime: Clock,
@@ -124,6 +146,164 @@ function ConditionCard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function RuleSimulator({ ruleId, conditions }: { ruleId: string; conditions: Condition[] }) {
+  const [fields, setFields] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const c of conditions) {
+      if (!initial[c.field]) {
+        initial[c.field] = "";
+      }
+    }
+    return initial;
+  });
+
+  const simulate = useMutation({
+    mutationFn: async (metadata: Record<string, unknown>): Promise<SimulationResult> => {
+      const { data } = await api.post(`/rules/${ruleId}/test`, { metadata });
+      return data;
+    },
+  });
+
+  const handleRun = () => {
+    const metadata: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(fields)) {
+      if (val === "") continue;
+      if (val === "true") metadata[key] = true;
+      else if (val === "false") metadata[key] = false;
+      else if (!Number.isNaN(Number(val)) && val.trim() !== "") metadata[key] = Number(val);
+      else metadata[key] = val;
+    }
+    simulate.mutate(metadata);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <FlaskConical className="w-5 h-5 text-accent" />
+        <h2 className="text-lg font-heading font-semibold text-foreground">
+          Test Rule
+        </h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Simulate this rule against test data without creating grants.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {Object.keys(fields).map((field) => (
+          <div key={field}>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              {getFieldLabel(field)}
+            </label>
+            <input
+              type="text"
+              value={fields[field]}
+              onChange={(e) =>
+                setFields((prev) => ({ ...prev, [field]: e.target.value }))
+              }
+              placeholder={`Enter ${field}...`}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={handleRun}
+        disabled={simulate.isPending}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all",
+          "bg-accent text-accent-foreground",
+          simulate.isPending
+            ? "opacity-60 cursor-not-allowed"
+            : "hover:brightness-110 hover:shadow-md active:scale-[0.98]"
+        )}
+      >
+        {simulate.isPending ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Running...
+          </>
+        ) : (
+          <>
+            <Play className="w-4 h-4" />
+            Run Test
+          </>
+        )}
+      </button>
+
+      {simulate.isError && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+          <p className="text-sm text-destructive">
+            {(simulate.error as Error).message}
+          </p>
+        </div>
+      )}
+
+      {simulate.data && (
+        <div className="animate-in space-y-3">
+          <div className="flex items-center gap-3">
+            {simulate.data.matches ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-sm font-medium text-success">
+                <CheckCircle2 className="w-4 h-4" />
+                MATCH
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-3 py-1 text-sm font-medium text-destructive">
+                <XCircle className="w-4 h-4" />
+                NO MATCH
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {simulate.data.durationMs}ms
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {simulate.data.conditionResults.map((cr, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border p-3",
+                  cr.passed
+                    ? "border-success/30 bg-success/5"
+                    : "border-destructive/30 bg-destructive/5"
+                )}
+              >
+                {cr.passed ? (
+                  <CheckCircle2 className="w-4 h-4 text-success mt-0.5 shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                    <span className="font-medium">{getFieldLabel(cr.field)}</span>
+                    <span className="text-muted-foreground">
+                      {getOperatorLabel(cr.field, cr.op)}
+                    </span>
+                    {cr.value !== undefined && cr.value !== null && (
+                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {String(cr.value)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Actual: <span className="font-mono">{cr.actual === null ? "null" : String(cr.actual)}</span>
+                  </p>
+                  {cr.reasoning && (
+                    <p className="text-xs text-muted-foreground mt-1 italic">
+                      {cr.reasoning}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -312,6 +492,12 @@ export function RuleDetail({ id }: RuleDetailProps) {
             </div>
           </div>
         </div>
+
+        {rule.conditions.length > 0 && (
+          <div className="rounded-xl border border-accent/20 bg-accent/5 p-6">
+            <RuleSimulator ruleId={rule.id} conditions={rule.conditions} />
+          </div>
+        )}
       </div>
 
       {showForm && (

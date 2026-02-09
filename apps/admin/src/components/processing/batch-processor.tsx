@@ -74,6 +74,55 @@ function StatCell({
   );
 }
 
+function RuleBreakdownCard({ result }: { result: ProcessResult }) {
+  const breakdown = result.ruleBreakdown;
+  if (!breakdown || breakdown.length === 0) return null;
+
+  const maxMatches = Math.max(...breakdown.map((r) => r.matchCount), 1);
+
+  return (
+    <div
+      className="animate-in bg-card rounded-xl border border-border overflow-hidden"
+      style={{ animationDelay: "450ms" }}
+    >
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-border">
+        <BookOpen className="w-4 h-4 text-muted-foreground" />
+        <h3 className="text-sm font-heading font-semibold text-foreground">
+          Per-Rule Breakdown
+        </h3>
+      </div>
+      <div className="p-4 space-y-3">
+        {breakdown.map((rule) => (
+          <div key={rule.ruleId} className="space-y-1.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-foreground truncate mr-2">
+                {rule.ruleName}
+              </span>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs text-muted-foreground">
+                  {rule.matchCount} {rule.matchCount === 1 ? "match" : "matches"}
+                </span>
+                <span className="text-xs font-mono text-accent font-medium">
+                  +{formatNumber(rule.pointsAwarded)}
+                </span>
+              </div>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  rule.matchCount > 0 ? "bg-accent" : "bg-muted-foreground/20"
+                )}
+                style={{ width: `${(rule.matchCount / maxMatches) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ResultCard({ result }: { result: ProcessResult }) {
   return (
     <div className="animate-in space-y-4" style={{ animationDelay: "50ms" }}>
@@ -119,10 +168,12 @@ function ResultCard({ result }: { result: ProcessResult }) {
         />
       </div>
 
+      <RuleBreakdownCard result={result} />
+
       {result.errors.length > 0 && (
         <div
           className="animate-in rounded-xl border border-destructive/30 bg-destructive/5 p-4"
-          style={{ animationDelay: "400ms" }}
+          style={{ animationDelay: "500ms" }}
         >
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-destructive" />
