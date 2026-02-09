@@ -49,7 +49,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 		request.log.info("Starting database seed...");
 
 		const raw = readFileSync(
-			join(__dirname, "../../../data/data.json"),
+			join(__dirname, "../../../../../data/data.json"),
 			"utf-8",
 		);
 		const data: SeedData = JSON.parse(raw);
