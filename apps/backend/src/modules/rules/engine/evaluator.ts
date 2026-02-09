@@ -96,14 +96,14 @@ export async function processEvents(
 	}
 
 	// 2. Fetch events
-	let query = db.select().from(events);
-	if (eventIds) {
-		query = query.where(inArray(events.id, eventIds));
-	}
-	if (limit) {
-		query = query.limit(limit);
-	}
-	const eventList = await query;
+	const baseQuery = db.select().from(events);
+	const eventList = await (eventIds
+		? limit
+			? baseQuery.where(inArray(events.id, eventIds)).limit(limit)
+			: baseQuery.where(inArray(events.id, eventIds))
+		: limit
+			? baseQuery.limit(limit)
+			: baseQuery);
 
 	result.totalEvents = eventList.length;
 
