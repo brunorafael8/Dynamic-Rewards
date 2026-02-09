@@ -104,6 +104,28 @@ curl -s http://localhost:3000/employees | jq '.[] | {name, point_balance}'
 
 Or use the **Admin Dashboard** at `localhost:3001` for a visual experience with a condition builder, leaderboard, and batch processing.
 
+### LLM-Powered Rules (Bonus)
+
+With `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` configured, you can use AI-powered operators:
+
+```bash
+# Create an LLM rule
+curl -s -X POST http://localhost:3000/rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Quality Documentation",
+    "event_type": "event",
+    "conditions": [
+      { "field": "documentation", "op": "not_null" },
+      { "field": "documentation", "op": "llm", "value": "Is this documentation thorough and professional?" }
+    ],
+    "points": 25
+  }' | jq
+
+# Process limited events for quick demo (LLM calls take ~1s each)
+curl -s -X POST 'http://localhost:3000/events/process-all?limit=10' | jq
+```
+
 ## Architecture
 
 ```
