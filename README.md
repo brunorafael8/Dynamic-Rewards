@@ -220,31 +220,136 @@ Three AI-powered operators for text evaluation in conditions:
 
 **Hybrid Model Selection (2026 Best Practices):**
 The engine automatically routes requests to appropriate models based on task complexity, inspired by [RouteLLM](https://github.com/lm-sys/RouteLLM) (LMSYS/Berkeley):
-- **Simple tasks** (sentiment, short prompts) → Haiku/GPT-4o-mini (fast, cheap)
-- **Complex tasks** (long prompts, reasoning) → Sonnet/GPT-4o (powerful, nuanced)
+- **Simple tasks** (<0.4 complexity) → Haiku/GPT-4o-mini ($0.25/$0.15 per M tokens)
+- **Complex tasks** (0.4-0.75 complexity) → Sonnet/GPT-4o ($3/$2.5 per M tokens)
+- **Ultra-complex tasks** (>0.75 complexity) → Opus/o1-preview ($15/$15 per M tokens)
 
 **Complexity scoring** (weighted 0-1 scale):
-- Token count (max 0.5): Longer prompts need stronger models
-- Reasoning keywords (0.3): Keywords like "why", "analyze", "evaluate"
+- Token count (max 0.4): Longer prompts need stronger models
+- Reasoning keywords (0.2): Keywords like "why", "analyze", "evaluate"
+- Deep reasoning (0.2): Multi-part comparisons, detailed analysis
 - Content length (0.2): Long content to evaluate (>500 chars)
-- Threshold: 0.4 (calibrated for ~40% strong model usage)
 
 This achieves up to **3.66x cost savings** while maintaining quality ([research](https://arxiv.org/html/2406.18665v1)).
 
 Concurrency is managed with `p-limit` (max 5 parallel calls). Without an API key, LLM operators return `false` and the engine continues with standard operators.
 
+## Advanced LLM Features
+
+### 1. Chain-of-Thought Reasoning 🧠
+
+Every LLM evaluation uses chain-of-thought prompting for better accuracy:
+
+```typescript
+// Response includes step-by-step reasoning
+{
+  "thinking": "1. Key aspects: helpfulness, detail, professionalism\n2. Evidence: mentions specific metrics, uses professional tone\n3. Confidence: High - meets all criteria",
+  "match": true,
+  "confidence": 0.92,
+  "reasoning": "Documentation is thorough with specific details and professional tone"
+}
+```
+
+Benefits:
+- **Higher accuracy** - Model shows its work
+- **Explainability** - Understand why decisions were made
+- **Debugging** - Identify prompt issues faster
+
+### 2. Semantic Caching 💾
+
+Caches LLM responses using fast embedding-based similarity:
+
+```bash
+# First call: ~1000ms (LLM API call)
+"Is this documentation good?" → Cache MISS → LLM evaluation
+
+# Similar call: ~5ms (cache hit)
+"Is this documentation high quality?" → Cache HIT (87% similar)
+```
+
+**How it works:**
+- Converts prompts to embeddings using character trigrams (offline, fast)
+- Uses cosine similarity to find cached results (threshold: 85%)
+- TTL: 1 hour (configurable)
+
+**Benefits:**
+- **10-100x faster** for similar queries
+- **Zero API cost** for cache hits
+- **Works offline** (no external embedding API needed)
+
+### 3. LLM Analytics & Cost Tracking 📊
+
+Comprehensive metrics for monitoring and optimization:
+
+```bash
+# Get detailed analytics
+curl http://localhost:3000/analytics/llm/summary | jq
+```
+
+```json
+{
+  "summary": {
+    "totalCalls": 150,
+    "cachedCalls": 45,
+    "cacheHitRate": "30.0%",
+    "totalCost": "$0.0124",
+    "costSavings": "$0.0432",
+    "savingsMultiplier": "4.48x",
+    "avgLatency": "847ms"
+  },
+  "complexity": {
+    "simple": "75 (50%)",
+    "complex": "60 (40%)",
+    "ultraComplex": "15 (10%)"
+  },
+  "models": {
+    "claude-haiku-4-5-20251001": 75,
+    "claude-sonnet-4-5-20250929": 60,
+    "claude-opus-4-6-20250514": 15
+  },
+  "cache": {
+    "entries": 42,
+    "totalHits": 45,
+    "avgHitsPerEntry": "1.1"
+  }
+}
+```
+
+**Tracks:**
+- Model usage distribution (Haiku/Sonnet/Opus)
+- Token consumption (input/output)
+- Cost per call and total spend
+- Latency per model tier
+- Cache hit rate and efficiency
+- Complexity distribution
+
+**Use cases:**
+- **Cost monitoring** - Track spend in real-time
+- **Performance optimization** - Identify slow calls
+- **Model tuning** - Adjust complexity thresholds
+- **ROI demonstration** - Show hybrid routing savings
+
 ## API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| **Rules** |||
 | `POST` | `/rules` | Create reward rule |
 | `GET` | `/rules` | List rules (`?active=true`) |
 | `GET` | `/rules/:id` | Get rule details |
 | `PUT` | `/rules/:id` | Update rule |
 | `DELETE` | `/rules/:id` | Soft-delete (`active=false`) |
+| **Events** |||
+| `POST` | `/events/process-all` | Process all events (`?limit=N` for subset) |
+| `POST` | `/events/process` | Process specific event IDs |
+| **Employees** |||
 | `GET` | `/employees` | List employees (`?limit=20&offset=0`) |
 | `GET` | `/employees/:id` | Employee detail + grant history |
-| `POST` | `/events/process-all` | Process all events against active rules |
-| `POST` | `/events/process` | Process specific event IDs |
+| **Analytics** |||
+| `GET` | `/analytics/llm` | Full LLM metrics (JSON) |
+| `GET` | `/analytics/llm/summary` | Formatted summary for display |
+| `DELETE` | `/analytics/llm` | Reset analytics + cache |
+| **Admin** |||
 | `POST` | `/seed` | Seed sample data |
+| `GET` | `/health` | Health check |
 

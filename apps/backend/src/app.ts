@@ -1,6 +1,7 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { adminRoutes } from "./modules/admin/admin.routes";
+import { analyticsRoutes } from "./modules/analytics/analytics.routes";
 import { employeeRoutes } from "./modules/employees/employees.routes";
 import { eventRoutes } from "./modules/events/events.routes";
 import { ruleRoutes } from "./modules/rules/rules.routes";
@@ -19,6 +20,7 @@ export function buildApp() {
 	app.register(employeeRoutes, { prefix: "/employees" });
 	app.register(ruleRoutes, { prefix: "/rules" });
 	app.register(eventRoutes, { prefix: "/events" });
+	app.register(analyticsRoutes, { prefix: "/analytics" });
 	app.register(adminRoutes);
 
 	// Global error handler

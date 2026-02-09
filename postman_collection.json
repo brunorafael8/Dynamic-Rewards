@@ -277,6 +277,50 @@
       ]
     },
     {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get LLM Analytics (Full)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/analytics/llm",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["analytics", "llm"]
+            }
+          }
+        },
+        {
+          "name": "Get LLM Analytics (Summary)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/analytics/llm/summary",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["analytics", "llm", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Reset Analytics & Cache",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:3000/analytics/llm",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["analytics", "llm"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Admin",
       "item": [
         {
