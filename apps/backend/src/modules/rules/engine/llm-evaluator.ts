@@ -87,9 +87,17 @@ export async function evaluateLLMCondition(
 	}
 
 	try {
+		// Hybrid routing based on 2026 best practices:
+		// - Longer prompts need stronger models (token complexity)
+		// - Multi-step reasoning indicators suggest complex task
+		const hasReasoningIndicators = /why|how|compare|analyze|evaluate|explain/i.test(prompt);
+		const isLongPrompt = prompt.length > 100;
+
+		const complexity = isLongPrompt || hasReasoningIndicators ? "complex" : "simple";
+
 		const { object } = await withResilience(() =>
 			generateObject({
-				model: getModel(),
+				model: getModel(complexity),
 				schema: evaluationSchema,
 				system: "You are a judge evaluating employee visit data. Be concise.",
 				prompt: `${prompt}\n\nContent to evaluate:\n"${fieldValue}"`,
@@ -112,9 +120,11 @@ export async function evaluateSentiment(
 	}
 
 	try {
+		// Sentiment classification is straightforward binary task
+		// → Use fast/cheap model (Haiku/Mini)
 		const { object } = await withResilience(() =>
 			generateObject({
-				model: getModel(),
+				model: getModel("simple"),
 				schema: sentimentSchema,
 				system:
 					"You are a sentiment analyzer for employee visit documentation. Be concise.",
@@ -142,9 +152,13 @@ export async function evaluateQualityScore(
 	}
 
 	try {
+		// Quality scoring with high thresholds (≥70) requires nuanced judgment
+		// → Use powerful model (Sonnet/GPT-4o) for better discrimination
+		const complexity = threshold >= 70 ? "complex" : "simple";
+
 		const { object } = await withResilience(() =>
 			generateObject({
-				model: getModel(),
+				model: getModel(complexity),
 				schema: qualitySchema,
 				system:
 					"You are a documentation quality assessor for employee visit notes. Score based on helpfulness, detail, and professionalism. Be concise.",
