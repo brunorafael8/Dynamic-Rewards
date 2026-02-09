@@ -12,17 +12,46 @@ pnpm install
 cp apps/backend/.env.example apps/backend/.env
 # Add your DATABASE_URL (Neon PostgreSQL)
 
-# Push schema + start backend
-cd apps/backend && pnpm db:push && pnpm dev &
-
-# Seed sample data
-curl -X POST http://localhost:3000/seed
-
-# Start admin dashboard
-cd ../admin && pnpm dev
-# Backend  → http://localhost:3000
-# Admin UI → http://localhost:3001
+# Push schema
+cd apps/backend && pnpm db:push && cd ../..
 ```
+
+### Running the apps
+
+```bash
+# Terminal 1 — Backend API
+pnpm --filter=@dynamic-rewards/backend dev
+# → http://localhost:3000
+
+# Terminal 2 — Admin Dashboard (Next.js)
+pnpm --filter=@dynamic-rewards/admin dev
+# → http://localhost:3001 (connects to backend at localhost:3000)
+
+# Terminal 3 — Mobile App (Expo)
+pnpm --filter=@dynamic-rewards/mobile start
+# → Scan QR code with Expo Go (iOS/Android)
+#   Uses localhost:3000 by default
+```
+
+Once the backend is running, seed sample data:
+
+```bash
+curl -X POST http://localhost:3000/seed
+```
+
+### Environment variables
+
+```bash
+# apps/backend/.env (required)
+DATABASE_URL=postgresql://...        # Neon PostgreSQL connection
+OPENAI_API_KEY=sk-...                # Optional — enables LLM operators
+ANTHROPIC_API_KEY=sk-ant-...         # Optional — alternative LLM provider
+
+# apps/admin/.env.local (optional, defaults to localhost:3000)
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+The mobile app uses `localhost:3000` by default. For testing on a physical device, update the API URL in `apps/mobile/lib/api.ts` with your machine's local IP.
 
 ## Demo: Create Rule → Ingest Events → See Balances
 
@@ -177,11 +206,3 @@ Concurrency is managed with `p-limit` (max 5 parallel calls). Without an API key
 | `POST` | `/events/process` | Process specific event IDs |
 | `POST` | `/seed` | Seed sample data |
 
-## Environment Variables
-
-```bash
-# apps/backend/.env
-DATABASE_URL=postgresql://...     # Required
-OPENAI_API_KEY=sk-...             # Optional (LLM operators)
-ANTHROPIC_API_KEY=sk-ant-...      # Optional (LLM operators)
-```
