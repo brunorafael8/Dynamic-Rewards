@@ -11,11 +11,7 @@ const LLM_MAX_RETRIES = 3;
 
 const evaluationSchema = z.object({
 	match: z.boolean().describe("Whether the content meets the criteria"),
-	confidence: z
-		.number()
-		.min(0)
-		.max(1)
-		.describe("Confidence score between 0 and 1"),
+	confidence: z.number().describe("Confidence score between 0 and 1"),
 	reasoning: z.string().describe("Brief one-sentence explanation"),
 });
 
@@ -23,20 +19,11 @@ const sentimentSchema = z.object({
 	sentiment: z
 		.enum(["positive", "negative", "neutral"])
 		.describe("Overall sentiment of the text"),
-	score: z
-		.number()
-		.min(-1)
-		.max(1)
-		.describe("Sentiment score from -1 (negative) to 1 (positive)"),
 	reasoning: z.string().describe("Brief one-sentence explanation"),
 });
 
 const qualitySchema = z.object({
-	score: z
-		.number()
-		.min(0)
-		.max(100)
-		.describe("Quality score from 0 (poor) to 100 (excellent)"),
+	score: z.int().describe("Quality score from 0 (poor) to 100 (excellent)"),
 	reasoning: z.string().describe("Brief one-sentence explanation"),
 });
 
@@ -137,7 +124,7 @@ export async function evaluateSentiment(
 
 		return {
 			match: object.sentiment === expectedSentiment,
-			confidence: Math.abs(object.score),
+			confidence: 1,
 			reasoning: object.reasoning,
 		};
 	} catch (err) {

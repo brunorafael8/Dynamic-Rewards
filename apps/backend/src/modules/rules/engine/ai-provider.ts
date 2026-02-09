@@ -10,7 +10,7 @@ const providers: Record<string, ProviderFactory> = {
 };
 
 function getApiKey(): string | undefined {
-	return process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
+	return process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
 }
 
 export function isAIConfigured(): boolean {
@@ -22,7 +22,8 @@ export function getModel(): LanguageModel {
 	if (!apiKey) throw new Error("No AI API key configured");
 
 	const providerName = process.env.AI_PROVIDER || "openai";
-	const modelId = process.env.AI_MODEL || "gpt-4o-mini";
+	const defaultModel = providerName === "anthropic" ? "claude-haiku-4-5-20251001" : "gpt-4o-mini";
+	const modelId = process.env.AI_MODEL || defaultModel;
 
 	const factory = providers[providerName];
 	if (!factory) {
