@@ -1,7 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
-// TODO: Change to your backend URL (update before deploying)
 const API_BASE_URL = 'http://localhost:3000';
 
 export const api = axios.create({
@@ -14,8 +13,8 @@ export const api = axios.create({
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // 1 minute
-      gcTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60,
+      gcTime: 1000 * 60 * 5,
       refetchOnWindowFocus: false,
       retry: 2,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -26,11 +25,10 @@ export const queryClient = new QueryClient({
   },
 });
 
-// API response types
-export interface Profile {
+export interface Employee {
   id: string;
   name: string;
-  pointBalance: number;
+  point_balance: number;
   onboarded: boolean;
   createdAt: string;
   updatedAt: string;
@@ -40,7 +38,7 @@ export interface RewardRule {
   id: string;
   name: string;
   description?: string;
-  eventType: string;
+  event_type: string;
   conditions: Condition[];
   points: number;
   active: boolean;
@@ -55,8 +53,8 @@ export interface Condition {
 }
 
 export interface ProcessResult {
-  totalVisits: number;
-  totalRulesEvaluated: number;
+  totalEvents: number;
+  rulesEvaluated: number;
   grantsCreated: number;
   totalPointsAwarded: number;
   skippedExisting: number;
@@ -64,13 +62,12 @@ export interface ProcessResult {
   durationMs: number;
 }
 
-// API functions
 export const fetchRules = async (): Promise<RewardRule[]> => {
   const { data } = await api.get('/rules');
   return data;
 };
 
-export const fetchProfiles = async (limit = 20, offset = 0): Promise<{ data: Employee[]; meta: { total: number } }> => {
+export const fetchEmployees = async (limit = 20, offset = 0): Promise<{ data: Employee[]; meta: { total: number } }> => {
   const { data } = await api.get(`/employees?limit=${limit}&offset=${offset}`);
   return data;
 };
@@ -85,7 +82,7 @@ export const createRule = async (rule: {
   return data;
 };
 
-export const processVisits = async (): Promise<ProcessResult> => {
+export const processEvents = async (): Promise<ProcessResult> => {
   const { data } = await api.post('/events/process-all');
   return data;
 };
