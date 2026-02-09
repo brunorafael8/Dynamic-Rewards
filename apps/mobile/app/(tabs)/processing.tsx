@@ -1,4 +1,5 @@
 import { useState, useCallback, memo } from 'react';
+import { Alert } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import { YStack, XStack, Card, H2, H4, Text, Button, Spinner } from 'tamagui';
 import { processEvents, ProcessResult, queryClient } from '../../lib/api';
@@ -44,9 +45,15 @@ export default function ProcessScreen() {
     mutationFn: processEvents,
     onSuccess: (data) => {
       setLastResult(data);
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.rules.all });
+    },
+    onError: (error: Error) => {
+      Alert.alert(
+        'Processing Failed',
+        error.message || 'Could not connect to the server. Check your connection and try again.',
+        [{ text: 'OK' }],
+      );
     },
   });
 
@@ -86,6 +93,31 @@ export default function ProcessScreen() {
           )}
         </Button>
       </YStack>
+
+      {mutation.isError ? (
+        <Animated.View entering={FadeInDown.duration(400)}>
+          <Card elevate size="$4" bordered backgroundColor="$backgroundStrong" marginTop="$6">
+            <Card.Header>
+              <H4 color="$red10">Processing Failed</H4>
+            </Card.Header>
+            <Card.Body>
+              <Text color="$colorFocus">
+                {mutation.error instanceof Error
+                  ? mutation.error.message
+                  : 'An unexpected error occurred. Please try again.'}
+              </Text>
+              <Button
+                marginTop="$3"
+                backgroundColor="$primary"
+                color="white"
+                onPress={handleProcess}
+              >
+                Retry
+              </Button>
+            </Card.Body>
+          </Card>
+        </Animated.View>
+      ) : null}
 
       {lastResult ? <ResultCard result={lastResult} /> : null}
     </YStack>

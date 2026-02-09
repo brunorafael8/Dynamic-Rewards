@@ -60,7 +60,7 @@ const contentContainerStyle = { padding: 16 };
 
 export default function RulesScreen() {
   const router = useRouter();
-  const { data: rules, isLoading, refetch, isRefetching } = useQuery({
+  const { data: rules, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: queryKeys.rules.all,
     queryFn: fetchRules,
     placeholderData: [],
@@ -97,6 +97,27 @@ export default function RulesScreen() {
       <YStack flex={1} backgroundColor="$background" justifyContent="center" alignItems="center">
         <Spinner size="large" color="$primary" />
         <Text marginTop="$4" color="$colorFocus">Loading rules...</Text>
+      </YStack>
+    );
+  }
+
+  if (isError) {
+    return (
+      <YStack flex={1} backgroundColor="$background" justifyContent="center" alignItems="center" padding="$4">
+        <Text fontSize="$8" marginBottom="$4">⚠️</Text>
+        <Text fontSize="$6" color="$color" fontWeight="600" marginBottom="$2" textAlign="center">
+          Failed to load rules
+        </Text>
+        <Text color="$colorFocus" textAlign="center" marginBottom="$4">
+          {error instanceof Error ? error.message : 'Could not connect to the server. Check your connection and try again.'}
+        </Text>
+        <Button
+          backgroundColor="$primary"
+          color="white"
+          onPress={() => refetch()}
+        >
+          Retry
+        </Button>
       </YStack>
     );
   }
